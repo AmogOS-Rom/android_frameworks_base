@@ -87,5 +87,8 @@ public class SystemSettings {
         Settings.System.DISPLAY_COLOR_MODE,
         Settings.System.ALARM_ALERT,
         Settings.System.NOTIFICATION_LIGHT_PULSE,
+        Settings.System.STATUS_BAR_LOGO,
+        Settings.System.STATUS_BAR_LOGO_POSITION,
+        Settings.System.STATUS_BAR_LOGO_STYLE,
     };
 }
