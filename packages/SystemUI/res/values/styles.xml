@@ -1302,4 +1302,10 @@
         <item name="biometricsEnrollProgressHelp">@color/udfps_enroll_progress_help</item>
         <item name="biometricsEnrollProgressHelpWithTalkback">@color/udfps_enroll_progress_help_with_talkback</item>
     </style>
+
+    <!-- Tri-state UI -->
+    <style name="TriStateUiText">
+        <item name="android:textSize">11.0sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+    </style>
 </resources>
