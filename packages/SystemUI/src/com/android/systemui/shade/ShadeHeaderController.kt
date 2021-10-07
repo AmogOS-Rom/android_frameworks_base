@@ -356,6 +356,7 @@ constructor(
         demoModeController.addCallback(demoModeReceiver)
         statusBarIconController.addIconGroup(iconManager)
         nextAlarmController.addCallback(nextAlarmCallback)
+        updateResources()
         systemIconsHoverContainer.setOnHoverListener(
             statusOverlayHoverListenerFactory.createListener(systemIconsHoverContainer)
         )
@@ -562,16 +563,17 @@ constructor(
         qsBatteryModeController.updateResources()
 
         val fillColor = Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimary)
-        val inverseColor = Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimaryInverse)
-        iconManager.setTint(fillColor, inverseColor)
+        val fillColorInverse = Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimaryInverse)
+        iconManager.setTint(fillColor, fillColorInverse)
         val textColor = Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimary)
+        val textColorInverse = Utils.getColorAttrDefaultColor(context, android.R.attr.textColorPrimaryInverse)
         val colorStateList = Utils.getColorAttr(context, android.R.attr.textColorPrimary)
         if (textColor != textColorPrimary) {
             val textColorSecondary = Utils.getColorAttrDefaultColor(context,
                     android.R.attr.textColorSecondary)
             textColorPrimary = textColor
             if (iconManager != null) {
-                iconManager.setTint(textColor, inverseColor)
+                iconManager.setTint(textColor, textColorInverse)
             }
             clock.setTextColor(textColorPrimary)
             date.setTextColor(textColorPrimary)
