@@ -610,8 +610,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                                 qsSettingsObserver,
                                 UserHandle.USER_ALL);
 
-        mSystemSettings.registerContentObserverForUser(
-                Settings.System.getUriFor(LMOSettings.System.STATUS_BAR_BATTERY_STYLE),
+        mSecureSettings.registerContentObserverForUser(
+                Settings.Secure.getUriFor(Settings.Secure.QS_BRIGHTNESS_SLIDER_POSITION),
                 false,
                 new ContentObserver(mBgHandler) {
                     @Override
@@ -633,6 +633,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                         if (isCircleBattery) {
                             reevaluateSystemTheme(true /* forceReload */);
                         }
+                        reevaluateSystemTheme(true /* forceReload */);
                     }
                 },
                 UserHandle.USER_ALL);

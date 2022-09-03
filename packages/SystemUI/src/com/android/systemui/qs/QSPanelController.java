@@ -18,7 +18,6 @@ package com.android.systemui.qs;
 
 import static com.android.systemui.classifier.Classifier.QS_SWIPE_SIDE;
 import static com.android.systemui.media.dagger.MediaModule.QS_PANEL;
-import static com.android.systemui.qs.QSPanel.QS_SHOW_BRIGHTNESS;
 import static com.android.systemui.qs.dagger.QSScopeModule.QS_USING_MEDIA_PLAYER;
 
 import android.provider.Settings;
@@ -62,6 +61,7 @@ public class QSPanelController extends QSPanelControllerBase<QSPanel> {
     private final BrightnessMirrorHandler mBrightnessMirrorHandler;
     private final StatusBarKeyguardViewManager mStatusBarKeyguardViewManager;
     private boolean mListening;
+    private BrightnessMirrorController mBrightnessMirrorController;
 
     private final boolean mSceneContainerEnabled;
 
@@ -133,6 +133,15 @@ public class QSPanelController extends QSPanelControllerBase<QSPanel> {
                 Settings.Secure.getUriFor(QS_SHOW_BRIGHTNESS), false, mView.getContentObserver());
         mView.getContentObserver().onChange(true,
                 Settings.Secure.getUriFor(QS_SHOW_BRIGHTNESS));
+        mTunerService.addTunable(mView, QSPanel.QS_SHOW_BRIGHTNESS_SLIDER);
+        mTunerService.addTunable(mView, QSPanel.QS_SHOW_AUTO_BRIGHTNESS);
+        mTunerService.addTunable(mView, QSPanel.QS_BRIGHTNESS_SLIDER_POSITION);
+
+        mView.setBrightnessRunnable(() -> {
+            mView.updateResources();
+            updateBrightnessMirror();
+        });
+
         mView.updateResources();
         mView.setSceneContainerEnabled(mSceneContainerEnabled);
         if (mView.isListening()) {
@@ -154,6 +163,8 @@ public class QSPanelController extends QSPanelControllerBase<QSPanel> {
     @Override
     protected void onViewDetached() {
         getContext().getContentResolver().unregisterContentObserver(mView.getContentObserver());
+        mTunerService.removeTunable(mView);
+        mView.setBrightnessRunnable(null);
         mBrightnessMirrorHandler.onQsPanelDettached();
         super.onViewDetached();
     }
@@ -172,6 +183,12 @@ public class QSPanelController extends QSPanelControllerBase<QSPanel> {
         ((PagedTileLayout) mView.getOrCreateTileLayout())
                 .forceTilesRedistribution("Split shade state changed");
         mView.setCanCollapse(!shouldUseSplitNotificationShade);
+    }
+
+    private void updateBrightnessMirror() {
+        if (mBrightnessMirrorController != null) {
+            mBrightnessSliderController.setMirrorControllerAndMirror(mBrightnessMirrorController);
+        }
     }
 
     /** */
@@ -196,6 +213,7 @@ public class QSPanelController extends QSPanelControllerBase<QSPanel> {
     }
 
     public void setBrightnessMirror(BrightnessMirrorController brightnessMirrorController) {
+        mBrightnessMirrorController = brightnessMirrorController;
         mBrightnessMirrorHandler.setController(brightnessMirrorController);
     }
 

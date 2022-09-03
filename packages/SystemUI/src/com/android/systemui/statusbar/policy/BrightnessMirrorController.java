@@ -30,12 +30,14 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 
+import com.android.systemui.Dependency;
 import com.android.systemui.res.R;
 import com.android.systemui.settings.brightness.BrightnessSliderController;
 import com.android.systemui.settings.brightness.ToggleSlider;
 import com.android.systemui.shade.NotificationShadeWindowView;
 import com.android.systemui.shade.ShadeViewController;
 import com.android.systemui.statusbar.NotificationShadeDepthController;
+import com.android.systemui.tuner.TunerService;
 
 import com.libremobileos.providers.LMOSettings;
 
@@ -47,6 +49,9 @@ import java.util.function.Consumer;
  */
 public class BrightnessMirrorController
         implements CallbackController<BrightnessMirrorController.BrightnessMirrorListener> {
+
+    private static final String QS_SHOW_AUTO_BRIGHTNESS =
+            Settings.Secure.QS_SHOW_AUTO_BRIGHTNESS;
 
     private final NotificationShadeWindowView mStatusBarWindow;
     private final Consumer<Boolean> mVisibilityCallback;
@@ -97,6 +102,17 @@ public class BrightnessMirrorController
                         updateIcon();
                     }
                 });
+                
+        TunerService.Tunable tunable = (key, newValue) -> {
+            if (QS_SHOW_AUTO_BRIGHTNESS.equals(key)) {
+                mShouldShowAutoBrightness = TunerService.parseIntegerSwitch(newValue, true);
+                updateIcon();
+            }
+        };
+        Dependency.get(TunerService.class).addTunable(tunable, QS_SHOW_AUTO_BRIGHTNESS);
+
+        mIsAutomaticBrightnessAvailable = mBrightnessMirror.getContext().getResources().getBoolean(
+                com.android.internal.R.bool.config_automatic_brightness_available);
     }
 
     public void showMirror() {
@@ -223,8 +239,8 @@ public class BrightnessMirrorController
                     ? R.drawable.ic_qs_brightness_auto_on_new
                     : R.drawable.ic_qs_brightness_auto_off_new);
             mIcon.setBackgroundResource(isAutomatic
-                    ? R.drawable.bg_qs_brightness_auto_on
-                    : R.drawable.bg_qs_brightness_auto_off);
+                    ? com.android.systemui.R.drawable.ic_qs_brightness_auto_on
+                    : com.android.systemui.R.drawable.ic_qs_brightness_auto_off);
             mIcon.setVisibility(View.VISIBLE);
         } else {
             mIcon.setVisibility(View.GONE);

@@ -29,13 +29,16 @@ import android.widget.LinearLayout;
 
 import com.android.internal.logging.UiEventLogger;
 import com.android.systemui.FontSizeUtils;
+import com.android.systemui.Dependency;
 import com.android.systemui.res.R;
 import com.android.systemui.plugins.qs.QSTile;
+import com.android.systemui.qs.logging.QSLogger;
+import com.android.systemui.tuner.TunerService;
 
 /**
  * Version of QSPanel that only shows N Quick Tiles in the QS Header.
  */
-public class QuickQSPanel extends QSPanel {
+public class QuickQSPanel extends QSPanel implements TunerService.Tunable {
 
     private static final String TAG = "QuickQSPanel";
     // A fallback value for max tiles number when setting via Tuner (parseNumTiles)
@@ -74,6 +77,55 @@ public class QuickQSPanel extends QSPanel {
         mHorizontalContentContainer.setClipToPadding(false);
         mHorizontalContentContainer.setClipChildren(false);
         updateColumns();
+    }
+
+
+    @Override
+    public void setBrightnessView(@NonNull View view) {
+        if (mBrightnessView != null) {
+            removeView(mBrightnessView);
+        }
+        mBrightnessView = view;
+        mAutoBrightnessView = view.findViewById(R.id.brightness_icon);
+        setBrightnessViewMargin(mTop);
+        if (mBrightnessView != null) {
+            addView(mBrightnessView);
+
+            TunerService tunerService = Dependency.get(TunerService.class);
+            if (tunerService.getValue(QS_SHOW_BRIGHTNESS_SLIDER, 2) > 1) {
+                mBrightnessView.setVisibility(VISIBLE);
+            }
+        }
+    }
+
+    View getBrightnessView() {
+        return mBrightnessView;
+    }
+
+    private void setBrightnessViewMargin(boolean top) {
+        if (mBrightnessView != null) {
+            MarginLayoutParams lp = (MarginLayoutParams) mBrightnessView.getLayoutParams();
+            if (top) {
+                lp.topMargin = mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.qqs_top_brightness_margin_top);
+                lp.bottomMargin = mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.qqs_top_brightness_margin_bottom);
+            } else {
+                lp.topMargin = mContext.getResources()
+                        .getDimensionPixelSize(R.dimen.qqs_bottom_brightness_margin_top);
+                lp.bottomMargin = 0;
+            }
+            mBrightnessView.setLayoutParams(lp);
+        }
+    }
+
+    @Override
+    void initialize(QSLogger qsLogger) {
+        mQsLogger = qsLogger;
+        super.initialize(mQsLogger);
+        if (mHorizontalContentContainer != null) {
+            mHorizontalContentContainer.setClipChildren(false);
+        }
     }
 
     @Override
@@ -128,6 +180,19 @@ public class QuickQSPanel extends QSPanel {
 
     public void setMaxTiles(int maxTiles) {
         mMaxTiles = maxTiles;
+    }
+    
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        switch (key) {
+            case QS_SHOW_BRIGHTNESS_SLIDER:
+                boolean value =
+                        TunerService.parseInteger(newValue, 2) > 1;
+                super.onTuningChanged(key, value ? newValue : "0");
+                break;
+            default:
+                super.onTuningChanged(key, newValue);
+         }
     }
 
     public int getNumQuickTiles() {
