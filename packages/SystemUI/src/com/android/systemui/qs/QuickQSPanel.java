@@ -18,6 +18,7 @@ package com.android.systemui.qs;
 
 import android.content.Context;
 import android.content.res.Configuration;
+import android.provider.Settings;
 import android.util.AttributeSet;
 import android.view.View;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -45,14 +46,17 @@ public class QuickQSPanel extends QSPanel {
     public int mMaxColumnsMediaPlayer = 4;
 
     private boolean mDisabledByPolicy;
-    private int mMaxTiles;
 
     public QuickQSPanel(Context context, AttributeSet attrs) {
         super(context, attrs);
-        mMaxTiles = getResources().getInteger(R.integer.quick_qs_panel_max_tiles);
         mMaxColumnsPortrait = getResources().getInteger(R.integer.quick_qs_panel_num_columns);
         mMaxColumnsLandscape = getResources().getInteger(R.integer.quick_qs_panel_num_columns_landscape);
         mMaxColumnsMediaPlayer = getResources().getInteger(R.integer.quick_qs_panel_num_columns_media);
+
+        mMaxColumnsPortrait = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.QQS_NUM_COLUMNS,
+                mMaxColumnsPortrait);
+        mMaxColumnsLandscape = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.QQS_NUM_COLUMNS_LANDSCAPE,
+                mMaxColumnsLandscape);
     }
 
     @Override
@@ -125,10 +129,6 @@ public class QuickQSPanel extends QSPanel {
             mMaxColumnsPortrait);
     }
 
-    public void setMaxTiles(int maxTiles) {
-        mMaxTiles = maxTiles;
-    }
-
     @Override
     public void onTuningChanged(String key, String newValue) {
         if (QS_SHOW_BRIGHTNESS_SLIDER.equals(key)) {
@@ -138,7 +138,7 @@ public class QuickQSPanel extends QSPanel {
     }
 
     public int getNumQuickTiles() {
-        return mMaxTiles;
+        return mTileLayout.getMaxColumns();
     }
 
     /**
