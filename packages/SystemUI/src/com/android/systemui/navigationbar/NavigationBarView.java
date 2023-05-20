@@ -67,9 +67,11 @@ import com.android.systemui.R;
 import com.android.systemui.animation.Interpolators;
 import com.android.systemui.model.SysUiState;
 import com.android.systemui.navigationbar.buttons.ButtonDispatcher;
+import com.android.systemui.navigationbar.buttons.ClipboardButtonDispatcher;
 import com.android.systemui.navigationbar.buttons.ContextualButton;
 import com.android.systemui.navigationbar.buttons.ContextualButtonGroup;
 import com.android.systemui.navigationbar.buttons.DeadZone;
+import com.android.systemui.navigationbar.buttons.DragDropSurfaceCallback;
 import com.android.systemui.navigationbar.buttons.KeyButtonDrawable;
 import com.android.systemui.navigationbar.buttons.NearestTouchFrame;
 import com.android.systemui.navigationbar.buttons.RotationContextButton;
@@ -97,7 +99,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 /** */
-public class NavigationBarView extends FrameLayout implements TunerService.Tunable {
+public class NavigationBarView extends FrameLayout implements TunerService.Tunable, DragDropSurfaceCallback {
     final static boolean DEBUG = false;
     final static String TAG = "NavBarView";
 
@@ -135,6 +137,8 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
     private KeyButtonDrawable mPowerButton;
     private KeyButtonDrawable mVolumePlusButton;
     private KeyButtonDrawable mVolumeMinusButton;
+    private KeyButtonDrawable mClipboardEmptyButton;
+    private KeyButtonDrawable mClipboardFullButton;
 
     private EdgeBackGestureHandler mEdgeBackGestureHandler;
     private final DeadZone mDeadZone;
@@ -152,6 +156,8 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
     private boolean mInCarMode = false;
     private boolean mDockedStackExists;
     private boolean mScreenOn = true;
+    private boolean mForceDisableOverview = false;
+    private DragDropSurfaceCallback mForceDisableOverviewCallback = null;
 
     private final SparseArray<ButtonDispatcher> mButtonDispatchers = new SparseArray<>();
     private final ContextualButtonGroup mContextualButtonGroup;
@@ -297,6 +303,8 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
 
         // Set up the context group of buttons
         mContextualButtonGroup = new ContextualButtonGroup(R.id.menu_container);
+        final ContextualButton menuButton = new ContextualButton(R.id.menu,
+                mLightContext, R.drawable.ic_sysbar_menu);
         final ContextualButton imeSwitcherButton = new ContextualButton(R.id.ime_switcher,
                 mLightContext, R.drawable.ic_ime_switcher_default);
         final ContextualButton accessibilityButton =
@@ -306,6 +314,7 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
                 mLightContext, R.drawable.ic_chevron_start);
         final ContextualButton cursorRightButton = new ContextualButton(R.id.dpad_right,
                 mLightContext, R.drawable.ic_chevron_end);
+        mContextualButtonGroup.addButton(menuButton);
         mContextualButtonGroup.addButton(imeSwitcherButton);
         mContextualButtonGroup.addButton(accessibilityButton);
         mRotationContextButton = new RotationContextButton(R.id.rotate_suggestion,
@@ -337,6 +346,7 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         mButtonDispatchers.put(R.id.home, new ButtonDispatcher(R.id.home));
         mButtonDispatchers.put(R.id.home_handle, new ButtonDispatcher(R.id.home_handle));
         mButtonDispatchers.put(R.id.recent_apps, new ButtonDispatcher(R.id.recent_apps));
+        mButtonDispatchers.put(R.id.menu, menuButton);
         mButtonDispatchers.put(R.id.ime_switcher, imeSwitcherButton);
         mButtonDispatchers.put(R.id.accessibility_button, accessibilityButton);
         mButtonDispatchers.put(R.id.menu_container, mContextualButtonGroup);
@@ -345,6 +355,10 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         mButtonDispatchers.put(R.id.power, new ButtonDispatcher(R.id.power));
         mButtonDispatchers.put(R.id.volume_minus, new ButtonDispatcher(R.id.volume_minus));
         mButtonDispatchers.put(R.id.volume_plus, new ButtonDispatcher(R.id.volume_plus));
+        mButtonDispatchers.put(R.id.clipboard, new ClipboardButtonDispatcher());
+        for (int i = 0; i < mButtonDispatchers.size(); i++) {
+            mButtonDispatchers.valueAt(i).setForceDisableOverviewCallback(this);
+        }
         mDeadZone = new DeadZone(this);
     }
 
@@ -384,6 +398,18 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
 
     public void setTouchHandler(Gefingerpoken touchHandler) {
         mTouchHandler = touchHandler;
+    }
+
+    @Override
+    public void setForceDisableOverview(boolean forceDisableOverview) {
+        mForceDisableOverview = forceDisableOverview;
+        if (mForceDisableOverviewCallback != null) {
+            mForceDisableOverviewCallback.setForceDisableOverview(forceDisableOverview);
+        }
+    }
+
+    public void setForceDisableOverviewCallback(DragDropSurfaceCallback forceDisableOverviewCallback) {
+        mForceDisableOverviewCallback = forceDisableOverviewCallback;
     }
 
     @Override
@@ -427,6 +453,10 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
 
     public ButtonDispatcher getRecentsButton() {
         return mButtonDispatchers.get(R.id.recent_apps);
+    }
+
+    public ButtonDispatcher getMenuButton() {
+        return mButtonDispatchers.get(R.id.menu);
     }
 
     public ButtonDispatcher getBackButton() {
@@ -473,6 +503,10 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         return mButtonDispatchers.get(R.id.volume_minus);
     }
 
+    public ClipboardButtonDispatcher getClipboardButton() {
+        return (ClipboardButtonDispatcher) mButtonDispatchers.get(R.id.clipboard);
+    }
+
     public SparseArray<ButtonDispatcher> getButtonDispatchers() {
         return mButtonDispatchers;
     }
@@ -514,6 +548,8 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         mPowerButton = getDrawable(R.drawable.ic_sysbar_power);
         mVolumePlusButton = getDrawable(R.drawable.ic_sysbar_volume_plus);
         mVolumeMinusButton = getDrawable(R.drawable.ic_sysbar_volume_minus);
+        mClipboardEmptyButton = getDrawable(R.drawable.clipboard_empty);
+        mClipboardFullButton = getDrawable(R.drawable.clipboard_full);
     }
 
     /**
@@ -684,6 +720,9 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         if (getVolumePlusButton() != null) {
             getVolumePlusButton().setImageDrawable(mVolumePlusButton);
         }
+        if (getClipboardButton() != null) {
+            getClipboardButton().setImageDrawables(mClipboardEmptyButton, mClipboardFullButton);
+        }
 
         mBarTransitions.reapplyDarkIntensity();
 
@@ -740,6 +779,9 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         }
         if (getVolumePlusButton() != null) {
             getVolumePlusButton().setVisibility(View.VISIBLE);
+        }
+        if (getClipboardButton() != null) {
+            getClipboardButton().setVisibility(View.VISIBLE);
         }
 
         notifyActiveTouchRegions();
@@ -820,7 +862,7 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         int displayId = mContext.getDisplayId();
 
         sysUiState.setFlag(SYSUI_STATE_SCREEN_PINNING,
-                        ActivityManagerWrapper.getInstance().isScreenPinningActive())
+                        mForceDisableOverview || ActivityManagerWrapper.getInstance().isScreenPinningActive())
                 .setFlag(SYSUI_STATE_OVERVIEW_DISABLED,
                         (mDisabledFlags & View.STATUS_BAR_DISABLE_RECENT) != 0)
                 .setFlag(SYSUI_STATE_HOME_DISABLED,
@@ -915,6 +957,10 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         mEdgeBackGestureHandler.onNavigationModeChanged(mNavBarMode);
         mRotationButtonController.onNavigationModeChanged(mNavBarMode);
         updateRotationButton();
+    }
+
+    public void setMenuVisibility(final boolean show) {
+        mContextualButtonGroup.setButtonVisibility(R.id.menu, show);
     }
 
     public void setAccessibilityButtonState(final boolean visible, final boolean longClickable) {
@@ -1224,9 +1270,10 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
                         visibilityToString(getCurrentView().getVisibility()),
                         getCurrentView().getAlpha()));
 
-        pw.println(String.format("      disabled=0x%08x vertical=%s darkIntensity=%.2f",
+        pw.println(String.format("      disabled=0x%08x vertical=%s menu=%s darkIntensity=%.2f",
                         mDisabledFlags,
                         mIsVertical ? "true" : "false",
+                        getMenuButton().isVisible() ? "true" : "false",
                         getLightTransitionsController().getCurrentDarkIntensity()));
 
         pw.println("    mScreenOn: " + mScreenOn);
@@ -1236,6 +1283,7 @@ public class NavigationBarView extends FrameLayout implements TunerService.Tunab
         dumpButton(pw, "home", getHomeButton());
         dumpButton(pw, "handle", getHomeHandle());
         dumpButton(pw, "rcnt", getRecentsButton());
+        dumpButton(pw, "menu", getMenuButton());
         dumpButton(pw, "rota", getRotateSuggestionButton());
         dumpButton(pw, "a11y", getAccessibilityButton());
         dumpButton(pw, "ime", getImeSwitchButton());
