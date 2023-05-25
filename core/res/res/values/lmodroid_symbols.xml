@@ -162,4 +162,8 @@
 
     <!-- The location of the devices physical tri state switch -->
     <java-symbol type="integer" name="config_alertSliderLocation" />
+
+    <!-- Whether to use VPN Tethering -->
+   <java-symbol type="bool" name="config_enable_vpntethering" />
+
 </resources>
