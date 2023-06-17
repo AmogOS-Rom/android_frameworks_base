@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   ~ Copyright (C) 2021 The AospExtended Project
-  ~ Copyright (C) 2023 The LibreMobileOS Foundation
+  ~ Copyright (C) 2022-2023 The LibreMobileOS Foundation
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -15,30 +15,22 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License.
   -->
-<layer-list
-  xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:gravity="fill_horizontal|center" android:id="@android:id/background">
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android"
+    android:autoMirrored="true">
+    <item android:height="20dp">
         <selector>
             <item android:state_enabled="false">
-                <shape android:tint="?android:attr/colorAccent" android:shape="rectangle" android:alpha="0.4">
-                    <size android:height="20dp" />
-                    <solid android:color="#40626161" />
+                <shape android:tint="?android:attr/colorAccent" android:shape="rectangle">
+                    <solid android:color="#80ffffff" />
                     <corners android:radius="10dp" />
                 </shape>
             </item>
             <item android:state_enabled="true">
-                <shape android:tint="?android:attr/colorAccent" android:shape="rectangle" android:alpha="0.8">
-                    <size android:height="20dp" />
-                    <solid android:color="#80626161" />
+                <shape android:tint="?android:attr/colorAccent" android:shape="rectangle">
+                    <solid android:color="#ffffffff" />
                     <corners android:radius="10dp" />
                 </shape>
             </item>
         </selector>
     </item>
-    <item android:gravity="fill_horizontal|center" android:id="@android:id/progress">
-        <com.android.internal.graphics.drawable.RoundedCornerProgressDrawable
-            android:drawable="@drawable/seekbar_progress"
-        />
-    </item>
 </layer-list>
-

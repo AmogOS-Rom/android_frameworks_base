@@ -13,14 +13,15 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<com.android.systemui.navigationbar.buttons.KeyButtonView
+<com.android.systemui.tuner.PreviewNavInflater
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:systemui="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/custom_key"
-    android:layout_width="@dimen/navigation_side_padding"
-    android:layout_height="match_parent"
-    android:layout_weight="0"
-    android:scaleType="center"
-    android:tint="@android:color/white"
-    android:contentDescription="@string/accessibility_key" />
+    android:background="@android:color/black"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/navigation_bar_size">
 
+    <include android:id="@+id/horizontal" layout="@layout/navigation_layout" />
+
+    <include android:id="@+id/vertical" layout="@layout/navigation_layout_vertical" />
+
+</com.android.systemui.tuner.PreviewNavInflater>
