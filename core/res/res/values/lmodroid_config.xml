@@ -249,9 +249,6 @@
     <!-- Parallel space max count. Should overlay according to device performance. -->
     <integer name="config_parallelSpaceMaxCount">9</integer>
 
-    <!-- Whether to use old mobile type icons as default -->
-    <bool name="config_useOldMobileIcons">false</bool>
-
     <!-- Whether device has physical tri state switch -->
     <bool name="config_hasAlertSlider">false</bool>
 
@@ -265,5 +262,9 @@
 
     <!-- Default value for QS_TRANSPARENCY -->
     <integer name="config_qs_transparency">85</integer>
+
+    <!-- If true, then we do not warn the user about old apps with deprecated target SDK.
+         Do not set this to true for production devices. Doing so will cause you to fail CTS. -->
+    <bool name="config_disableDeprecatedTargetDialog">true</bool>
 
 </resources>

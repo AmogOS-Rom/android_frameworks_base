@@ -15,7 +15,6 @@
 package com.android.systemui.statusbar.phone;
 
 import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_ICON;
-import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_IMS;
 import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_MOBILE;
 import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_MOBILE_NEW;
 import static com.android.systemui.statusbar.phone.StatusBarIconHolder.TYPE_NETWORK_TRAFFIC;
@@ -46,12 +45,10 @@ import com.android.systemui.plugins.DarkIconDispatcher;
 import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.statusbar.BaseStatusBarFrameLayout;
 import com.android.systemui.statusbar.StatusBarIconView;
-import com.android.systemui.statusbar.StatusBarImsView;
 import com.android.systemui.statusbar.StatusBarMobileView;
 import com.android.systemui.statusbar.StatusBarNetworkTraffic;
 import com.android.systemui.statusbar.StatusBarWifiView;
 import com.android.systemui.statusbar.StatusIconDisplayable;
-import com.android.systemui.statusbar.connectivity.ImsIconState;
 import com.android.systemui.statusbar.connectivity.ui.MobileContextProvider;
 import com.android.systemui.statusbar.phone.PhoneStatusBarPolicy.NetworkTrafficState;
 import com.android.systemui.statusbar.phone.StatusBarSignalPolicy.CallIndicatorIconState;
@@ -65,7 +62,6 @@ import com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MobileIconsVi
 import com.android.systemui.statusbar.pipeline.wifi.ui.WifiUiAdapter;
 import com.android.systemui.statusbar.pipeline.wifi.ui.view.ModernStatusBarWifiView;
 import com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel;
-import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.Assert;
 import com.android.systemui.tuner.TunerService;
 
@@ -149,8 +145,6 @@ public interface StatusBarIconController {
     void setNoCallingIcons(String slot, List<CallIndicatorIconState> states);
 
     public void setIconVisibility(String slot, boolean b);
-
-    public void setImsIcon(String slot, ImsIconState state);
 
     /**
      * Sets the live region mode for the icon
@@ -413,8 +407,6 @@ public interface StatusBarIconController {
 
         private static final String SHOW_WIFI_STANDARD_ICON = Settings.Secure.SHOW_WIFI_STANDARD_ICON;
 
-        private boolean mIsOldSignalStyle = false;
-
         public IconManager(
                 ViewGroup group,
                 StatusBarLocation location,
@@ -508,9 +500,6 @@ public interface StatusBarIconController {
 
                 case TYPE_NETWORK_TRAFFIC:
                     return addNetworkTraffic(index, slot, holder.getNetworkTrafficState());
-
-                case TYPE_IMS:
-                    return addImsIcon(index, slot, holder.getImsState());
             }
 
             return null;
@@ -574,7 +563,6 @@ public interface StatusBarIconController {
             StatusBarMobileView mobileView = onCreateStatusBarMobileView(state.subId, slot);
             mobileView.applyMobileState(state);
             mGroup.addView(mobileView, index, onCreateLayoutParams());
-            mobileView.updateDisplayType(mIsOldSignalStyle);
 
             if (mIsInDemoMode) {
                 Context mobileContext = mMobileContextProvider
@@ -607,13 +595,6 @@ public interface StatusBarIconController {
         protected StatusBarNetworkTraffic addNetworkTraffic(int index, String slot, NetworkTrafficState state) {
             StatusBarNetworkTraffic view = onCreateStatusBarNetworkTraffic(slot);
             view.applyNetworkTrafficState(state);
-            mGroup.addView(view, index, onCreateLayoutParams());
-            return view;
-        }
-
-        protected StatusBarImsView addImsIcon(int index, String slot, ImsIconState state) {
-            StatusBarImsView view = onCreateStatusBarImsView(slot);
-            view.applyImsState(state);
             mGroup.addView(view, index, onCreateLayoutParams());
             return view;
         }
@@ -651,11 +632,6 @@ public interface StatusBarIconController {
 
         private StatusBarNetworkTraffic onCreateStatusBarNetworkTraffic(String slot) {
             StatusBarNetworkTraffic view = StatusBarNetworkTraffic.fromContext(mContext, slot);
-            return view;
-        }
-
-        private StatusBarImsView onCreateStatusBarImsView(String slot) {
-            StatusBarImsView view = StatusBarImsView.fromContext(mContext, slot);
             return view;
         }
 
@@ -723,9 +699,6 @@ public interface StatusBarIconController {
                 case TYPE_NETWORK_TRAFFIC:
                     onSetNetworkTraffic(viewIndex, holder.getNetworkTrafficState());
                     return;
-                case TYPE_IMS:
-                    onSetImsIcon(viewIndex, holder.getImsState());
-                    return;
                 default:
                     break;
             }
@@ -772,13 +745,6 @@ public interface StatusBarIconController {
             }
         }
 
-        public void onSetImsIcon(int viewIndex, ImsIconState state) {
-            StatusBarImsView view = (StatusBarImsView) mGroup.getChildAt(viewIndex);
-            if (view != null) {
-                view.applyImsState(state);
-            }
-        }
-
         @Override
         public void dispatchDemoCommand(String command, Bundle args) {
             if (!mDemoable) {
@@ -821,19 +787,6 @@ public interface StatusBarIconController {
                     mLocation,
                     mIconSize
             );
-        }
-
-        protected void setMobileSignalStyle(boolean isOldSignalStyle) {
-            mIsOldSignalStyle = isOldSignalStyle;
-        }
-
-        protected void updateMobileIconStyle() {
-            for (int i = 0; i < mGroup.getChildCount(); i++) {
-                final View child = mGroup.getChildAt(i);
-                if (child instanceof StatusBarMobileView) {
-                    ((StatusBarMobileView) child).updateDisplayType(mIsOldSignalStyle);
-                }
-            }
         }
 
         @Override

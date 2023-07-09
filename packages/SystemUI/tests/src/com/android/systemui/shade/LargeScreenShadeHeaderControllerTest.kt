@@ -1,6 +1,6 @@
 package com.android.systemui.shade
 
-import android.animation.ValueAnimator
+import android.animation.Animator
 import android.app.StatusBarManager
 import android.content.Context
 import android.testing.AndroidTestingRunner
@@ -44,10 +44,11 @@ import org.mockito.ArgumentMatchers.anyFloat
 import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mock
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.reset
 import org.mockito.Mockito.verify
 import org.mockito.Mockito.verifyZeroInteractions
-import org.mockito.Mockito.`when` as whenever
 import org.mockito.junit.MockitoJUnit
+import org.mockito.Mockito.`when` as whenever
 
 @SmallTest
 @RunWith(AndroidTestingRunner::class)
@@ -158,7 +159,17 @@ class LargeScreenShadeHeaderControllerTest : SysuiTestCase() {
     fun updateListeners_registersWhenVisible() {
         makeShadeVisible()
         verify(qsCarrierGroupController).setListening(true)
+    }
+
+    @Test
+    fun statusIconsAddedWhenAttached() {
         verify(statusBarIconController).addIconGroup(any())
+    }
+
+    @Test
+    fun statusIconsRemovedWhenDettached() {
+        mLargeScreenShadeHeaderController.simulateViewDetached()
+        verify(statusBarIconController).removeIconGroup(any())
     }
 
     @Test
@@ -166,16 +177,6 @@ class LargeScreenShadeHeaderControllerTest : SysuiTestCase() {
         makeShadeVisible()
         mLargeScreenShadeHeaderController.shadeExpandedFraction = 0.5f
         verify(view).setAlpha(ShadeInterpolation.getContentAlpha(0.5f))
-    }
-
-    @Test
-    fun alphaChangesUpdateVisibility() {
-        makeShadeVisible()
-        mLargeScreenShadeHeaderController.shadeExpandedFraction = 0f
-        assertThat(viewVisibility).isEqualTo(View.INVISIBLE)
-
-        mLargeScreenShadeHeaderController.shadeExpandedFraction = 1f
-        assertThat(viewVisibility).isEqualTo(View.VISIBLE)
     }
 
     @Test
@@ -263,36 +264,41 @@ class LargeScreenShadeHeaderControllerTest : SysuiTestCase() {
     }
 
     @Test
-    fun testShadeExpanded_true_alpha_zero_invisible() {
-        view.alpha = 0f
-        mLargeScreenShadeHeaderController.largeScreenActive = true
-        mLargeScreenShadeHeaderController.qsVisible = true
+    fun customizerAnimatorChangesViewVisibility() {
+        makeShadeVisible()
 
+        val animator = mock(ViewPropertyAnimator::class.java, Answers.RETURNS_SELF)
+        val duration = 1000L
+        whenever(view.animate()).thenReturn(animator)
+        val listenerCaptor = argumentCaptor<Animator.AnimatorListener>()
+
+        mLargeScreenShadeHeaderController.startCustomizingAnimation(show = true, duration)
+        verify(animator).setListener(capture(listenerCaptor))
+        // Start and end the animation
+        listenerCaptor.value.onAnimationStart(mock())
+        listenerCaptor.value.onAnimationEnd(mock())
         assertThat(viewVisibility).isEqualTo(View.INVISIBLE)
+
+        reset(animator)
+        mLargeScreenShadeHeaderController.startCustomizingAnimation(show = false, duration)
+        verify(animator).setListener(capture(listenerCaptor))
+        // Start and end the animation
+        listenerCaptor.value.onAnimationStart(mock())
+        listenerCaptor.value.onAnimationEnd(mock())
+        assertThat(viewVisibility).isEqualTo(View.VISIBLE)
     }
 
     @Test
-    fun animatorCallsUpdateVisibilityOnUpdate() {
+    fun animatorListenerClearedAtEnd() {
         val animator = mock(ViewPropertyAnimator::class.java, Answers.RETURNS_SELF)
         whenever(view.animate()).thenReturn(animator)
 
-        mLargeScreenShadeHeaderController.startCustomizingAnimation(show = false, 0L)
+        mLargeScreenShadeHeaderController.startCustomizingAnimation(show = true, 0L)
+        val listenerCaptor = argumentCaptor<Animator.AnimatorListener>()
+        verify(animator).setListener(capture(listenerCaptor))
 
-        val updateCaptor = argumentCaptor<ValueAnimator.AnimatorUpdateListener>()
-        verify(animator).setUpdateListener(capture(updateCaptor))
-
-        mLargeScreenShadeHeaderController.largeScreenActive = true
-        mLargeScreenShadeHeaderController.qsVisible = true
-
-        view.alpha = 1f
-        updateCaptor.value.onAnimationUpdate(mock())
-
-        assertThat(viewVisibility).isEqualTo(View.VISIBLE)
-
-        view.alpha = 0f
-        updateCaptor.value.onAnimationUpdate(mock())
-
-        assertThat(viewVisibility).isEqualTo(View.INVISIBLE)
+        listenerCaptor.value.onAnimationEnd(mock())
+        verify(animator).setListener(null)
     }
 
     @Test

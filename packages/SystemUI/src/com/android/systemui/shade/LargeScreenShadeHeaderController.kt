@@ -16,6 +16,8 @@
 
 package com.android.systemui.shade
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
 import android.annotation.IdRes
 import android.app.StatusBarManager
 import android.content.Context
@@ -51,7 +53,6 @@ import com.android.systemui.qs.HeaderPrivacyIconsController
 import com.android.systemui.qs.carrier.QSCarrierGroup
 import com.android.systemui.qs.carrier.QSCarrierGroupController
 import com.android.systemui.shade.LargeScreenShadeHeaderController.Companion.HEADER_TRANSITION_ID
-import com.android.systemui.shade.LargeScreenShadeHeaderController.Companion.LARGE_SCREEN_HEADER_CONSTRAINT
 import com.android.systemui.shade.LargeScreenShadeHeaderController.Companion.QQS_HEADER_CONSTRAINT
 import com.android.systemui.shade.LargeScreenShadeHeaderController.Companion.QS_HEADER_CONSTRAINT
 import com.android.systemui.statusbar.phone.StatusBarContentInsetsProvider
@@ -121,7 +122,7 @@ class LargeScreenShadeHeaderController @Inject constructor(
             QQS_HEADER_CONSTRAINT -> "QQS Header"
             QS_HEADER_CONSTRAINT -> "QS Header"
             LARGE_SCREEN_HEADER_CONSTRAINT -> "Large Screen Header"
-            else -> "Unknown state"
+            else -> "Unknown state $this"
         }
     }
 
@@ -151,6 +152,14 @@ class LargeScreenShadeHeaderController @Inject constructor(
             }
             field = value
             updateListeners()
+        }
+
+    private var customizing = false
+        set(value) {
+            if (field != value) {
+                field = value
+                updateVisibility()
+            }
         }
 
     /**
@@ -184,10 +193,9 @@ class LargeScreenShadeHeaderController @Inject constructor(
      */
     var shadeExpandedFraction = -1f
         set(value) {
-            if (field != value) {
+            if (qsVisible && field != value) {
                 header.alpha = ShadeInterpolation.getContentAlpha(value)
                 field = value
-                updateVisibility()
             }
         }
 
@@ -314,22 +322,25 @@ class LargeScreenShadeHeaderController @Inject constructor(
 
     override fun onViewAttached() {
         privacyIconsController.chipVisibilityListener = chipVisibilityListener
+        updateVisibility()
+        updateTransition()
+        updateResources()
+
         if (header is MotionLayout) {
             header.setOnApplyWindowInsetsListener(insetListener)
             clock.addOnLayoutChangeListener { v, _, _, _, _, _, _, _, _ ->
                 val newPivot = if (v.isLayoutRtl) v.width.toFloat() else 0f
                 v.pivotX = newPivot
                 v.pivotY = v.height.toFloat() / 2
+
+                qsCarrierGroup.setPaddingRelative((v.width * v.scaleX).toInt(), 0, 0, 0)
             }
         }
 
         dumpManager.registerDumpable(this)
         configurationController.addCallback(configurationControllerListener)
         demoModeController.addCallback(demoModeReceiver)
-
-        updateVisibility()
-        updateTransition()
-        updateResources()
+        statusBarIconController.addIconGroup(iconManager)
     }
 
     override fun onViewDetached() {
@@ -337,6 +348,7 @@ class LargeScreenShadeHeaderController @Inject constructor(
         dumpManager.unregisterDumpable(this::class.java.simpleName)
         configurationController.removeCallback(configurationControllerListener)
         demoModeController.removeCallback(demoModeReceiver)
+        statusBarIconController.removeIconGroup(iconManager)
     }
 
     fun disable(state1: Int, state2: Int, animate: Boolean) {
@@ -351,9 +363,7 @@ class LargeScreenShadeHeaderController @Inject constructor(
                 .setDuration(duration)
                 .alpha(if (show) 0f else 1f)
                 .setInterpolator(if (show) Interpolators.ALPHA_OUT else Interpolators.ALPHA_IN)
-                .setUpdateListener {
-                    updateVisibility()
-                }
+                .setListener(CustomizerAnimationListener(show))
                 .start()
     }
 
@@ -437,7 +447,7 @@ class LargeScreenShadeHeaderController @Inject constructor(
     private fun updateVisibility() {
         val visibility = if (!largeScreenActive && !combinedHeaders || qsDisabled) {
             View.GONE
-        } else if (qsVisible && header.alpha > 0f) {
+        } else if (qsVisible && !customizing) {
             View.VISIBLE
         } else {
             View.INVISIBLE
@@ -455,15 +465,14 @@ class LargeScreenShadeHeaderController @Inject constructor(
         header as MotionLayout
         if (largeScreenActive) {
             logInstantEvent("Large screen constraints set")
-            header.setTransition(HEADER_TRANSITION_ID)
-            header.transitionToStart()
+            header.setTransition(LARGE_SCREEN_HEADER_TRANSITION_ID)
         } else {
             logInstantEvent("Small screen constraints set")
             header.setTransition(HEADER_TRANSITION_ID)
-            header.transitionToStart()
-            updatePosition()
-            updateScrollY()
         }
+        header.jumpToState(header.startState)
+        updatePosition()
+        updateScrollY()
     }
 
     private fun updatePosition() {
@@ -486,10 +495,8 @@ class LargeScreenShadeHeaderController @Inject constructor(
         if (visible) {
             updateSingleCarrier(qsCarrierGroupController.isSingleCarrier)
             qsCarrierGroupController.setOnSingleCarrierChangedListener { updateSingleCarrier(it) }
-            statusBarIconController.addIconGroup(iconManager)
         } else {
             qsCarrierGroupController.setOnSingleCarrierChangedListener(null)
-            statusBarIconController.removeIconGroup(iconManager)
         }
     }
 
@@ -578,4 +585,23 @@ class LargeScreenShadeHeaderController @Inject constructor(
 
     @VisibleForTesting
     internal fun simulateViewDetached() = this.onViewDetached()
+
+    inner class CustomizerAnimationListener(
+            private val enteringCustomizing: Boolean,
+    ) : AnimatorListenerAdapter() {
+        override fun onAnimationEnd(animation: Animator?) {
+            super.onAnimationEnd(animation)
+            header.animate().setListener(null)
+            if (enteringCustomizing) {
+                customizing = true
+            }
+        }
+
+        override fun onAnimationStart(animation: Animator?) {
+            super.onAnimationStart(animation)
+            if (!enteringCustomizing) {
+                customizing = false
+            }
+        }
+    }
 }
