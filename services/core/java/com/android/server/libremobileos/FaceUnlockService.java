@@ -25,8 +25,13 @@ import android.content.pm.PackageManager;
 import android.hardware.biometrics.BiometricManager;
 import android.hardware.biometrics.IBiometricService;
 import android.hardware.face.IFaceService;
+import android.hardware.face.FaceManager;
 import android.hardware.face.FaceSensorProperties;
 import android.hardware.face.FaceSensorPropertiesInternal;
+import android.hardware.face.IFaceAuthenticatorsRegisteredCallback;
+import android.hardware.fingerprint.FingerprintManager;
+import android.hardware.fingerprint.FingerprintSensorPropertiesInternal;
+import android.hardware.fingerprint.IFingerprintAuthenticatorsRegisteredCallback;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.util.Slog;
@@ -42,92 +47,105 @@ import java.util.List;
 import com.libremobileos.faceunlock.server.FaceUnlockServer;
 
 public class FaceUnlockService extends SystemService {
-	private static final String TAG = "FaceUnlockService";
+    private static final String TAG = "FaceUnlockService";
 
-	private static boolean sSupportsFace = false;
-	private static int sCompleted = 0;
-	private static boolean sCompletedSoftFace = false;
-	private static boolean sSupportsSelfIllumination = false;
-	private static int sMaxTemplatesAllowed = 0;
+    private ServiceThread mServiceThread = null;
+    private FaceUnlockServer mServer = null;
 
-	private final Context mContext;
-	private FaceUnlockServer mServer;
+    public FaceUnlockService(Context context) {
+        super(context);
+    }
 
-	public FaceUnlockService(Context context) {
-		super(context);
+    @Override
+    public void onStart() {
+        final PackageManager pm = getContext().getPackageManager();
+        final boolean supportsFace = pm.hasSystemFeature(PackageManager.FEATURE_FACE);
+        if (supportsFace) {
+            mServiceThread = new ServiceThread(TAG, THREAD_PRIORITY_DEFAULT, false);
+            mServiceThread.start();
+            FaceManager faceManager = getContext().getSystemService(FaceManager.class);
+            if (faceManager != null) {
+                faceManager.addAuthenticatorsRegisteredCallback(
+                    new IFaceAuthenticatorsRegisteredCallback.Stub() {
+                        @Override
+                        public void onAllAuthenticatorsRegistered(
+                                List<FaceSensorPropertiesInternal> faceSensors) {
+                            FingerprintManager fingerprintManager =
+                                    getContext().getSystemService(FingerprintManager.class);
+                            if (fingerprintManager != null) {
+                                fingerprintManager.addAuthenticatorsRegisteredCallback(
+                                    new IFingerprintAuthenticatorsRegisteredCallback.Stub() {
+                                        @Override
+                                        public void onAllAuthenticatorsRegistered(
+                                                List<FingerprintSensorPropertiesInternal>
+                                                fingerprintSensors) {
+                                            initialize(faceSensors);
+                                        }
+                                    }
+                                );
+                            } else {
+                                initialize(faceSensors);
+                            }
+                        }
+                    }
+                );
+            } else {
+                Slog.e(TAG, "Face feature exists, but FaceService is null.");
+            }
+        } else {
+            Slog.i(TAG, "Not using any face sensor.");
+        }
+    }
 
-		mContext = context;
-	}
+    private void initialize(List<FaceSensorPropertiesInternal> faceSensors) {
+        mServer = new FaceUnlockServer(getContext(), mServiceThread.getLooper(),
+                this::publishBinderService);
+        try {
+            IBiometricService biometricService = IBiometricService.Stub.asInterface(
+                ServiceManager.getService(Context.BIOMETRIC_SERVICE));
+            if (biometricService == null) {
+                Slog.e(TAG, "Face feature exists, but IBiometricService is null.");
+                return;
+            }
+            IFaceService faceService = IFaceService.Stub.asInterface(
+                ServiceManager.getService(Context.FACE_SERVICE));
+            if (faceService == null) {
+                Slog.e(TAG, "Face feature exists, but FaceService is null.");
+                return;
+            }
+            if (faceSensors.size() == 0) {
+                Slog.i(TAG, "Using software face sensor.");
+                int newId = 0;
+                // IDs may come from HALs and be non-linear, ensure we really have unique ID,
+                // because if ID is duplicated, we crash system server!
+                boolean foundDuplicate = false;
+                do {
+                    if (foundDuplicate) {
+                        newId++;
+                    }
+                    foundDuplicate = biometricService.getCurrentStrength(newId)
+                            != Authenticators.EMPTY_SET;
+                } while (foundDuplicate);
+                faceService.registerAuthenticators(getHidlFaceSensorProps(newId,
+                        Authenticators.BIOMETRIC_STRONG));
+            } else {
+                Slog.i(TAG, "Using hardware face sensor.");
+            }
+        } catch (RemoteException e) {
+            Slog.e(TAG, "RemoteException when loading face configuration", e);
+        }
+    }
 
-	@Override
-	public void onStart() {
-		final PackageManager pm = mContext.getPackageManager();
-		sSupportsSelfIllumination = getContext().getResources().getBoolean(
-				R.bool.config_faceAuthSupportsSelfIllumination);
-		sMaxTemplatesAllowed = getContext().getResources().getInteger(
-				R.integer.config_faceMaxTemplatesPerUser);
-		sSupportsFace = pm.hasSystemFeature(PackageManager.FEATURE_FACE);
-		if (!pm.hasSystemFeature(PackageManager.FEATURE_FINGERPRINT)) sCompleted++;
-		if (!pm.hasSystemFeature(PackageManager.FEATURE_IRIS)) sCompleted++;
-		if (sSupportsFace) {
-			ServiceThread st = new ServiceThread(TAG, THREAD_PRIORITY_DEFAULT, false);
-			st.start();
-			mServer = new FaceUnlockServer(mContext, st.getLooper(), this::publishBinderService);
-			onInitComplete();
-		} else {
-			mServer = null;
-			sCompletedSoftFace = true;
-		}
-	}
-
-	// called from iris, face, fp and ourselves
-	public static void onInitComplete() {
-        if (++sCompleted == 4) {
-			if (sSupportsFace && !sCompletedSoftFace) {
-				try {
-					IBiometricService biometricService = IBiometricService.Stub.asInterface(
-						ServiceManager.getService(Context.BIOMETRIC_SERVICE));
-					IFaceService faceService = IFaceService.Stub.asInterface(
-						ServiceManager.getService(Context.FACE_SERVICE));
-					if ((biometricService.getSupportedModalities(Authenticators.BIOMETRIC_WEAK) & TYPE_FACE) == 0) {
-						int newId = 0;
-						// IDs may come from HALs and be non-linear, ensure we really have unique ID
-						// if ID is duplicated, we crash system server
-						boolean foundDuplicate = false;
-						do {
-							if (foundDuplicate) {
-								newId++;
-							}
-							foundDuplicate = biometricService.getCurrentStrength(newId)
-									!= Authenticators.EMPTY_SET;
-						} while (foundDuplicate);
-						if (faceService != null) {
-							faceService.registerAuthenticators(List.of(getHidlFaceSensorProps(newId,
-									Authenticators.BIOMETRIC_STRONG)));
-							Slog.i(TAG, "Using software face sensor.");
-						} else {
-							Slog.e(TAG, "Software face configuration exists, but FaceService is null.");
-						}
-					} else {
-						Slog.i(TAG, "Using hardware face sensor.");
-					}
-				} catch (RemoteException e) {
-					Slog.e(TAG, "RemoteException when loading face configuration", e);
-				}
-			} else {
-				Slog.i(TAG, "Not using any face sensor.");
-			}
-			sCompletedSoftFace = true;
-		} else {
-			Slog.i(TAG, "Reporting event count: " + sCompleted);
-		}
-	}
-
-	private static FaceSensorPropertiesInternal getHidlFaceSensorProps(int sensorId,
-			@BiometricManager.Authenticators.Types int strength) {
-			// see AuthService.java getHidlFaceSensorProps()
-		return new FaceSensorPropertiesInternal(sensorId,
-				Utils.authenticatorStrengthToPropertyStrength(strength), sMaxTemplatesAllowed,
-				new ArrayList<>(), FaceSensorProperties.TYPE_UNKNOWN, false, sSupportsSelfIllumination, true);
-	}
+    private List<FaceSensorPropertiesInternal> getHidlFaceSensorProps(int sensorId,
+            @BiometricManager.Authenticators.Types int strength) {
+        // see AuthService.java getHidlFaceSensorProps()
+        final boolean supportsSelfIllumination = getContext().getResources().getBoolean(
+                R.bool.config_faceAuthSupportsSelfIllumination);
+        final int maxTemplatesAllowed = getContext().getResources().getInteger(
+                R.integer.config_faceMaxTemplatesPerUser);
+        return List.of(new FaceSensorPropertiesInternal(sensorId,
+                Utils.authenticatorStrengthToPropertyStrength(strength), maxTemplatesAllowed,
+                new ArrayList<>(), FaceSensorProperties.TYPE_UNKNOWN, false,
+                supportsSelfIllumination, true));
+    }
 }
