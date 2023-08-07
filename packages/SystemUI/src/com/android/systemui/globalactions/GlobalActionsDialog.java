@@ -135,7 +135,7 @@ public class GlobalActionsDialog extends GlobalActionsDialogLite
     private final NotificationShadeWindowController mNotificationShadeWindowController;
     private GlobalActionsPanelPlugin mWalletPlugin;
     private Optional<ControlsUiController> mControlsUiControllerOptional;
-    private List<ControlsServiceInfo> mControlsServiceInfos = new ArrayList<>();
+    private List<? extends ControlsServiceInfo> mControlsServiceInfos = new ArrayList<>();
     private ControlsComponent mControlsComponent;
     private Optional<ControlsController> mControlsControllerOptional;
     private UserContextProvider mUserContextProvider;
@@ -481,6 +481,25 @@ public class GlobalActionsDialog extends GlobalActionsDialogLite
             mControlsAvailable = controlsAvailable;
             mControlsUiController = controlsUiController;
             mWalletFactory = walletFactory;
+            // Window initialization
+            Window window = getWindow();
+            window.requestFeature(Window.FEATURE_NO_TITLE);
+            // Inflate the decor view, so the attributes below are not overwritten by the theme.
+            window.getDecorView();
+            window.getAttributes().systemUiVisibility |= View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION;
+            window.setLayout(MATCH_PARENT, MATCH_PARENT);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+            window.addFlags(
+                    WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
+                            | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+                            | WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
+                            | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
+                            | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH
+                            | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+            window.setType(WindowManager.LayoutParams.TYPE_VOLUME_OVERLAY);
+            window.getAttributes().setFitInsetsTypes(0 /* types */);
         }
 
         @Override
@@ -653,7 +672,7 @@ public class GlobalActionsDialog extends GlobalActionsDialogLite
         public void dismiss() {
             dismissWallet();
             if (mControlsUiController != null) mControlsUiController.closeDialogs(false);
-            if (mControlsUiController != null) mControlsUiController.hide();
+            if (mControlsUiController != null) mControlsUiController.hide(mControlsView);
             mContainer.setTranslationX(0);
             ObjectAnimator alphaAnimator =
                     ObjectAnimator.ofFloat(mContainer, "alpha", 1f, 0f);
@@ -690,7 +709,7 @@ public class GlobalActionsDialog extends GlobalActionsDialogLite
         private void dismissForControlsActivity() {
             dismissWallet();
             if (mControlsUiController != null) mControlsUiController.closeDialogs(false);
-            if (mControlsUiController != null) mControlsUiController.hide();
+            if (mControlsUiController != null) mControlsUiController.hide(mControlsView);
             ViewGroup root = (ViewGroup) mGlobalActionsLayout.getParent();
             ControlsAnimations.exitAnimation(root, this::completeDismiss).start();
         }
@@ -716,7 +735,7 @@ public class GlobalActionsDialog extends GlobalActionsDialogLite
             // ensure dropdown menus are dismissed before re-initializing the dialog
             dismissWallet();
             if (mControlsUiController != null) {
-                mControlsUiController.hide();
+                mControlsUiController.hide(mControlsView);
             }
 
             super.refreshDialog();

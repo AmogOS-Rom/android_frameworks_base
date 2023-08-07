@@ -32,8 +32,6 @@ import com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MobileIconVie
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-import android.provider.Settings;
-
 /**
  * Wraps {@link com.android.internal.statusbar.StatusBarIcon} so we can still have a uniform list
  */
@@ -66,14 +64,13 @@ public class StatusBarIconHolder {
     @Deprecated
     public static final int TYPE_WIFI_NEW = 4;
 
-    public static final int TYPE_NETWORK_TRAFFIC = 5;
+    public static final int TYPE_NETWORK_TRAFFIC = 7;
 
     @IntDef({
             TYPE_ICON,
             TYPE_WIFI,
             TYPE_MOBILE,
             TYPE_MOBILE_NEW,
-            TYPE_WIFI_NEW,
             TYPE_NETWORK_TRAFFIC
     })
     @Retention(RetentionPolicy.SOURCE)
@@ -86,6 +83,18 @@ public class StatusBarIconHolder {
 
     private @IconType int mType = TYPE_ICON;
     private int mTag = 0;
+
+    /** Returns a human-readable string representing the given type. */
+    public static String getTypeString(@IconType int type) {
+        switch(type) {
+            case TYPE_ICON: return "ICON";
+            case TYPE_WIFI: return "WIFI_OLD";
+            case TYPE_MOBILE: return "MOBILE_OLD";
+            case TYPE_MOBILE_NEW: return "MOBILE_NEW";
+            case TYPE_WIFI_NEW: return "WIFI_NEW";
+            default: return "UNKNOWN";
+        }
+    }
 
     private StatusBarIconHolder() {
     }
@@ -199,7 +208,6 @@ public class StatusBarIconHolder {
         mMobileState = state;
     }
 
-    @Nullable
     public NetworkTrafficState getNetworkTrafficState() {
         return mNetworkTrafficState;
     }
@@ -251,6 +259,7 @@ public class StatusBarIconHolder {
                 // The new pipeline controls visibilities via the view model and view binder, so
                 // ignore setVisible.
                 break;
+
             case TYPE_NETWORK_TRAFFIC:
                 mNetworkTrafficState.visible = visible;
                 break;
@@ -259,5 +268,12 @@ public class StatusBarIconHolder {
 
     public int getTag() {
         return mTag;
+    }
+
+    @Override
+    public String toString() {
+        return "StatusBarIconHolder(type=" + getTypeString(mType)
+                + " tag=" + getTag()
+                + " visible=" + isVisible() + ")";
     }
 }

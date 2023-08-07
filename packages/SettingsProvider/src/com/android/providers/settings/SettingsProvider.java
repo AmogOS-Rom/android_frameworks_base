@@ -3655,6 +3655,8 @@ public class SettingsProvider extends ContentProvider {
                 final int oldVersion = secureSettings.getVersionLocked();
                 final int newVersion = SETTINGS_VERSION;
 
+                onPreUpgradeLocked(mUserId);
+
                 // If up do date - done.
                 if (oldVersion == newVersion) {
                     return;
@@ -3717,6 +3719,62 @@ public class SettingsProvider extends ContentProvider {
 
             private SettingsState getSystemSettingsLocked(int userId) {
                 return getSettingsLocked(SETTINGS_TYPE_SYSTEM, userId);
+            }
+
+            private void onPreUpgradeLocked(int userId) {
+                final int latestVersion = 2;
+                final SettingsState systemSettings = getSystemSettingsLocked(userId);
+                final SettingsState secureSettings = getSecureSettingsLocked(userId);
+                final SettingsState globalSettings = getGlobalSettingsLocked();
+                Setting versionSetting = secureSettings.getSettingLocked(
+                        "lmo_db_ver");
+                boolean willUpgradeGlobal = userId == UserHandle.USER_SYSTEM;
+                int currentVersion = 0;
+                if (!versionSetting.isNull()) {
+                    try {
+                        currentVersion = Integer.valueOf(versionSetting.getValue());
+                    } catch (NumberFormatException unused) {}
+                }
+
+                if (currentVersion == 0) {
+                    Setting currentSetting = systemSettings.getSettingLocked(
+                            "transistent_task_mode");
+                    if (!currentSetting.isNull()) {
+                        systemSettings.insertSettingOverrideableByRestoreLocked(
+                                Settings.System.TRANSIENT_TASK_MODE,
+                                currentSetting.getValue(),
+                                null, true, SettingsState.SYSTEM_PACKAGE_NAME);
+                        systemSettings.deleteSettingLocked("transistent_task_mode");
+                    }
+                    currentVersion = 1;
+                }
+
+                if (currentVersion == 1) {
+                    if (willUpgradeGlobal) {
+                        Setting currentSetting = globalSettings.getSettingLocked(
+                                Settings.Global.PRIVATE_DNS_MODE);
+                        if (!currentSetting.isNull()
+                                    && "cloudflare".equals(currentSetting.getValue())) {
+                            globalSettings.insertSettingOverrideableByRestoreLocked(
+                                    Settings.Global.PRIVATE_DNS_SPECIFIER,
+                                    "one.one.one.one",
+                                    null, true, SettingsState.SYSTEM_PACKAGE_NAME);
+                            globalSettings.insertSettingOverrideableByRestoreLocked(
+                                    Settings.Global.PRIVATE_DNS_MODE,
+                                    "hostname",
+                                    null, true, SettingsState.SYSTEM_PACKAGE_NAME);
+                        }
+                    }
+                    currentVersion = 2;
+                }
+
+                if (currentVersion != latestVersion) {
+                    Slog.wtf("onPreUpgradeLocked", currentVersion + " found, expected " + latestVersion);
+                } else {
+                    secureSettings.insertSettingLocked(
+                            "lmo_db_ver", String.valueOf(currentVersion),
+                            null, true, SettingsState.SYSTEM_PACKAGE_NAME);
+                }
             }
 
             /**
