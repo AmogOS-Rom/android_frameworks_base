@@ -398,18 +398,11 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
     }
 
     /**
-     * If ringer and notification are the same stream (T and earlier), use notification-like bell
-     * icon set.
-     * If ringer and notification are separated, then use generic speaker icons.
+     * Use notification-like bell icon set.
      */
     private void updateRingerModeIconSet() {
-        if (mSeparateNotification) {
-            mVolumeRingerIconDrawableId = R.drawable.ic_speaker_on;
-            mVolumeRingerMuteIconDrawableId = R.drawable.ic_speaker_mute;
-        } else {
-            mVolumeRingerIconDrawableId = R.drawable.ic_volume_ringer;
-            mVolumeRingerMuteIconDrawableId = R.drawable.ic_volume_ringer_mute;
-        }
+        mVolumeRingerIconDrawableId = R.drawable.ic_volume_ringer;
+        mVolumeRingerMuteIconDrawableId = R.drawable.ic_volume_ringer_mute;
 
         if (mRingerDrawerMuteIcon != null) {
             mRingerDrawerMuteIcon.setImageResource(mVolumeRingerMuteIconDrawableId);
@@ -2345,8 +2338,9 @@ public class VolumeDialogImpl implements VolumeDialog, Dumpable,
                 ? Color.alpha(colorTint.getDefaultColor())
                 : getAlphaAttr(android.R.attr.secondaryContentAlpha);
 
-        final ColorStateList bgTint = Utils.getColorAttr(
-                mContext, android.R.attr.colorBackgroundFloating);
+        final ColorStateList bgTint = useActiveColoring
+                ? Utils.getColorAttr(mContext, android.R.attr.colorBackgroundFloating)
+                : Utils.getColorAttr(mContext, com.android.internal.R.attr.textColorOnAccent);
 
         final ColorStateList inverseTextTint = Utils.getColorAttr(
                 mContext, com.android.internal.R.attr.textColorOnAccent);
