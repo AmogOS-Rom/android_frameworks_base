@@ -1,5 +1,5 @@
-/**
- * Copyright (C) 2016 The ParanoidAndroid Project
+/*
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package android.pocket;
 
-/** @hide */
-interface IPocketCallback {
+package com.android.systemui.controls.ui
 
-    // notify when pocket state changes.
-    void onStateChanged(boolean isDeviceInPocket, int reason);
+import android.content.ContentProvider
+import android.graphics.drawable.Icon
 
+class CanUseIconPredicate(private val currentUserId: Int) : (Icon) -> Boolean {
+
+    override fun invoke(icon: Icon): Boolean =
+        if (icon.type == Icon.TYPE_URI || icon.type == Icon.TYPE_URI_ADAPTIVE_BITMAP) {
+            ContentProvider.getUserIdFromUri(icon.uri, currentUserId) == currentUserId
+        } else {
+            true
+        }
 }

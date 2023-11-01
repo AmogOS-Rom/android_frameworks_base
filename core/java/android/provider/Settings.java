@@ -5564,6 +5564,39 @@ public final class Settings {
         public static final String VOLUME_KEY_CURSOR_CONTROL = "volume_key_cursor_control";
 
         /**
+         * Whether charging control should be enabled.
+         * The value is boolean (1 or 0).
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_ENABLED = "charging_control_enabled";
+
+        /**
+         * Charging control mode, one of AUTO (1; default), CUSTOM (2), or LIMIT (3).
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_MODE = "charging_control_mode";
+
+        /**
+         * Time when charging control is automatically activated in CUSTOM mode.
+         * The value is represented as seconds from midnight.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_START_TIME = "charging_control_start_time";
+
+        /**
+         * Target time when battery is fully charged in CUSTOM mode.
+         * The value is represented as seconds from midnight.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_TARGET_TIME = "charging_control_target_time";
+
+        /**
+         * Limit to stop charging.
+         * @hide
+         */
+        public static final String CHARGING_CONTROL_LIMIT = "charging_control_charging_limit";
+
+        /**
          * Whether the battery light should be enabled (if hardware supports it)
          * The value is boolean (1 or 0).
          * @hide
@@ -6184,15 +6217,6 @@ public final class Settings {
         public static final String SHOW_APP_VOLUME = "show_app_volume";
 
         /**
-         * Whether allowing pocket service to register sensors and dispatch informations.
-         *   0 = disabled
-         *   1 = enabled
-         * @author Carlo Savignano
-         * @hide
-         */
-        public static final String POCKET_JUDGE = "pocket_judge";
-
-        /**
          * Whether to use the custom quick unlock screen control
          * @hide
          */
@@ -6355,7 +6379,6 @@ public final class Settings {
             PRIVATE_SETTINGS.add(DISPLAY_COLOR_MODE);
             PRIVATE_SETTINGS.add(DISPLAY_COLOR_MODE_VENDOR_HINT);
             PRIVATE_SETTINGS.add(DESKTOP_MODE);
-            PRIVATE_SETTINGS.add(POCKET_JUDGE);
             PRIVATE_SETTINGS.add(TRANSIENT_TASK_MODE);
             PRIVATE_SETTINGS.add(PREVENT_POINTER_ACCELERATION);
             PRIVATE_SETTINGS.add(FORCE_MOUSE_AS_TOUCH);
@@ -11744,58 +11767,55 @@ public final class Settings {
                 RING_HOME_BUTTON_BEHAVIOR_DO_NOTHING;
 
         /**
-         * Network traffic indicator location
-         * 0 = Disabled
-         * 1 = Statusbar
-         * 2 = Quick statusbar
+         * Our GameSpace can't write to device_config directly [GTS]
+         * Use this as intermediate to pass device_config property
+         * from our GameSpace to com.android.server.app.GameManagerService
+         * so we can set the device_config property from there.
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_LOCATION = "network_traffic_location";
+        public static final String GAME_OVERLAY = "game_overlay";
 
         /**
-         * Network traffic indicator mode
-         * 0 = Display both up- and down-stream traffic
-         * 1 = Display up-stream traffic only
-         * 2 = Display down-stream traffic only
+         * Whether to enable Ambient edge light
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_MODE = "network_traffic_mode";
+        public static final String PULSE_AMBIENT_LIGHT = "pulse_ambient_light";
 
         /**
-         * Whether or not to hide the network traffic indicator when there is no activity
+         * What color to use for Ambient edge light
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
+        public static final String PULSE_AMBIENT_LIGHT_COLOR = "pulse_ambient_light_color";
 
         /**
-         * Threshold below which network traffic would be hidden
+         * Duration of Ambient edge light in seconds
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD = "network_traffic_autohide_threshold";
+        public static final String PULSE_AMBIENT_LIGHT_DURATION = "pulse_ambient_light_duration";
 
         /**
-         * Measurement unit preference for network traffic
+         * Whether to use color from wallpaper for Ambient edge light
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_UNITS = "network_traffic_units";
+        public static final String PULSE_AMBIENT_LIGHT_COLOR_MODE = "pulse_ambient_light_color_mode";
 
         /**
-         * Whether or not to show measurement units in the network traffic indiciator
+         * Number of times to repeat animations of Ambient edge light
+         * 0 is never
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_SHOW_UNITS = "network_traffic_show_units";
+        public static final String PULSE_AMBIENT_LIGHT_REPEAT_COUNT = "pulse_ambient_light_repeat_count";
 
         /**
-         * Specify refresh duration for network traffic
+         * Width of Ambient edge light in px
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_REFRESH_INTERVAL = "network_traffic_refresh_interval";
+        public static final String PULSE_AMBIENT_LIGHT_WIDTH = "pulse_ambient_light_width";
 
         /**
-         * Whether to hide arrows for network traffic
          * @hide
          */
-        public static final String NETWORK_TRAFFIC_HIDEARROW = "network_traffic_hidearrow";
+        public static final String UDFPS_ANIM_STYLE = "udfps_anim_style";
 
         /**
          * Keys we no longer back up under the current schema, but want to continue to
@@ -12026,6 +12046,43 @@ public final class Settings {
          * @hide
          */
         public static final String KEYBOARD_BRIGHTNESS = "keyboard_brightness";
+
+        /**
+         * Network traffic indicator mode
+         * 0 = Don't show network traffic indicator
+         * 1 = Display up-stream traffic only
+         * 2 = Display down-stream traffic only
+         * 3 = Display both up- and down-stream traffic
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_MODE = "network_traffic_mode";
+
+        /**
+         * Network traffic indicator position
+         * 0 = Start side
+         * 1 = Center
+         * 2 = End side
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_POSITION = "network_traffic_position";
+
+        /**
+         * Whether or not to hide the network traffic indicator when there is no activity
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
+
+        /**
+         * Measurement unit preference for network traffic
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_UNITS = "network_traffic_units";
+
+        /**
+         * Whether or not to show measurement units in the network traffic indiciator
+         * @hide
+         */
+        public static final String NETWORK_TRAFFIC_SHOW_UNITS = "network_traffic_show_units";
 
         /**
          * Whether key swap is enabled on supported hardware

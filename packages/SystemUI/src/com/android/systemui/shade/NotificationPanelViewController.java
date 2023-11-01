@@ -69,6 +69,7 @@ import android.os.Handler;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.Trace;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.VibrationEffect;
 import android.provider.Settings;
@@ -110,6 +111,7 @@ import com.android.internal.policy.SystemBarUtils;
 import com.android.internal.util.LatencyTracker;
 import com.android.keyguard.ActiveUnlockConfig;
 import com.android.keyguard.FaceAuthApiRequestReason;
+import com.android.keyguard.FaceIconViewController;
 import com.android.keyguard.KeyguardClockSwitch.ClockSize;
 import com.android.keyguard.KeyguardStatusView;
 import com.android.keyguard.KeyguardStatusViewController;
@@ -161,6 +163,7 @@ import com.android.systemui.model.SysUiState;
 import com.android.systemui.navigationbar.NavigationBarController;
 import com.android.systemui.navigationbar.NavigationBarView;
 import com.android.systemui.navigationbar.NavigationModeController;
+import com.android.systemui.lmodroid.NotificationLightsView;
 import com.android.systemui.plugins.ClockAnimations;
 import com.android.systemui.plugins.FalsingManager;
 import com.android.systemui.plugins.FalsingManager.FalsingTapListener;
@@ -188,6 +191,7 @@ import com.android.systemui.statusbar.notification.NotificationWakeUpCoordinator
 import com.android.systemui.statusbar.notification.PropertyAnimator;
 import com.android.systemui.statusbar.notification.ViewGroupFadeHelper;
 import com.android.systemui.statusbar.notification.collection.NotificationEntry;
+import com.android.systemui.statusbar.notification.collection.NotifPipeline;
 import com.android.systemui.statusbar.notification.row.ActivatableNotificationView;
 import com.android.systemui.statusbar.notification.row.ExpandableNotificationRow;
 import com.android.systemui.statusbar.notification.row.ExpandableView;
@@ -677,6 +681,11 @@ public final class NotificationPanelViewController implements Dumpable {
                 }
             };
 
+    private final FaceIconViewController mFaceIconViewController;
+
+    private NotificationLightsView mPulseLightsView;
+    private NotifPipeline mNotifPipeline;
+
     @Inject
     public NotificationPanelViewController(NotificationPanelView view,
             @Main Handler handler,
@@ -755,7 +764,9 @@ public final class NotificationPanelViewController implements Dumpable {
             KeyguardLongPressViewModel keyguardLongPressViewModel,
             KeyguardInteractor keyguardInteractor,
             TunerService tunerService,
-            Context context) {
+            Context context,
+            FaceIconViewController faceIconViewController,
+            NotifPipeline notifPipeline) {
         mInteractionJankMonitor = interactionJankMonitor;
         keyguardStateController.addCallback(new KeyguardStateController.Callback() {
             @Override
@@ -907,6 +918,7 @@ public final class NotificationPanelViewController implements Dumpable {
         mScreenOffAnimationController = screenOffAnimationController;
         mUnlockedScreenOffAnimationController = unlockedScreenOffAnimationController;
         mLastDownEvents = new NPVCDownEventState.Buffer(MAX_DOWN_EVENT_BUFFER_SIZE);
+        mFaceIconViewController = faceIconViewController;
 
         int currentMode = navigationModeController.addListener(
                 mode -> mIsGestureNavigation = QuickStepContract.isGesturalMode(mode));
@@ -963,6 +975,7 @@ public final class NotificationPanelViewController implements Dumpable {
                 });
         mAlternateBouncerInteractor = alternateBouncerInteractor;
         dumpManager.registerDumpable(this);
+        mNotifPipeline = notifPipeline;
     }
 
     private void unlockAnimationFinished() {
@@ -1055,6 +1068,7 @@ public final class NotificationPanelViewController implements Dumpable {
         mShadeExpansionStateManager.addQsExpansionListener(this::onQsExpansionChanged);
         addTrackingHeadsUpListener(mNotificationStackScrollLayoutController::setTrackingHeadsUp);
         setKeyguardBottomArea(mView.findViewById(R.id.keyguard_bottom_area));
+        mPulseLightsView = (NotificationLightsView) mView.findViewById(R.id.lights_container);
 
         initBottomArea();
 
@@ -2539,6 +2553,7 @@ public final class NotificationPanelViewController implements Dumpable {
         alpha *= mBottomAreaShadeAlpha;
         mKeyguardBottomAreaInteractor.setAlpha(alpha);
         mLockIconViewController.setAlpha(alpha);
+        mFaceIconViewController.setAlpha(alpha);
     }
 
     private void onExpandingFinished() {
@@ -3035,6 +3050,8 @@ public final class NotificationPanelViewController implements Dumpable {
         final boolean
                 animatePulse =
                 !mDozeParameters.getDisplayNeedsBlanking() && mDozeParameters.getAlwaysOn();
+        boolean pulseLights = Settings.Secure.getIntForUser(mView.getContext().getContentResolver(),
+                Settings.Secure.PULSE_AMBIENT_LIGHT, 0, UserHandle.USER_CURRENT) != 0;
         if (animatePulse) {
             mAnimateNextPositionUpdate = true;
         }
@@ -3042,6 +3059,27 @@ public final class NotificationPanelViewController implements Dumpable {
         // The height callback will take care of pushing the clock to the right position.
         if (!mPulsing && !mDozing) {
             mAnimateNextPositionUpdate = false;
+        }
+        if ((mPulseLightsView != null) && pulseLights) {
+            mPulseLightsView.setVisibility(mPulsing ? View.VISIBLE : View.GONE);
+            if (mPulsing) {
+                // Get the notification that's pulsing
+                String notifPackageName = "";
+                List<NotificationEntry> notificationEntries =
+                        new ArrayList(mNotifPipeline.getAllNotifs());
+                for (int i = 0; i < notificationEntries.size(); i++) {
+                    NotificationEntry entry = notificationEntries.get(i);
+                    if (entry.showingPulsing()) {
+                        notifPackageName = entry.getSbn().getPackageName();
+                        break;
+                    }
+                }
+                // Animate edge light only for notification pulse.
+                // Package not empty means pulse caused by a notification.
+                if (!notifPackageName.isEmpty()) {
+                    mPulseLightsView.animateNotification(notifPackageName);
+                }
+            }
         }
         mNotificationStackScrollLayoutController.setPulsing(pulsing, animatePulse);
 
@@ -4624,6 +4662,10 @@ public final class NotificationPanelViewController implements Dumpable {
             }
             if (mKeyguardUserSwitcherController != null) {
                 mKeyguardUserSwitcherController.setAlpha(alpha);
+            }
+
+            if (mFaceIconViewController != null) {
+                mFaceIconViewController.setAlpha(alpha);
             }
         };
     }
