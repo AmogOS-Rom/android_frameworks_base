@@ -3710,7 +3710,7 @@ public final class NotificationPanelViewController implements Dumpable {
         return !isDirectionUpwards(x, y);
     }
 
-    private void fling(float vel, boolean expand, boolean expandBecauseOfFalsing) {
+    public void fling(float vel, boolean expand, boolean expandBecauseOfFalsing) {
         fling(vel, expand, 1.0f /* collapseSpeedUpFactor */, expandBecauseOfFalsing);
     }
 
@@ -4557,7 +4557,9 @@ public final class NotificationPanelViewController implements Dumpable {
         @Override
         public void onTuningChanged(String key, String newValue) {
             if (DOUBLE_TAP_SLEEP_GESTURE.equals(key)) {
-                mDoubleTapToSleepEnabled = TunerService.parseIntegerSwitch(newValue, true);
+                mDoubleTapToSleepEnabled = TunerService.parseIntegerSwitch(newValue,
+                        mResources.getBoolean(com.android.internal.R.bool.
+                                config_dt2sGestureEnabledByDefault));
             }
         }
     }
@@ -4611,7 +4613,7 @@ public final class NotificationPanelViewController implements Dumpable {
         mDisplayTopInset = combinedInsets.top;
         mDisplayRightInset = combinedInsets.right;
         mDisplayLeftInset = combinedInsets.left;
-        mQsController.setDisplayInsets(mDisplayRightInset, mDisplayLeftInset);
+        mQsController.setDisplayInsets(mDisplayLeftInset, mDisplayRightInset);
 
         mNavigationBarBottomHeight = insets.getStableInsetBottom();
         updateMaxHeadsUpTranslation();
