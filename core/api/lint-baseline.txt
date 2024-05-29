@@ -395,6 +395,10 @@ InvalidNullabilityOverride: android.media.midi.MidiUmpDeviceService#onBind(andro
     Invalid nullability on parameter `intent` in method `onBind`. Parameters of overrides cannot be NonNull if the super parameter is unannotated.
 
 
+NoSettingsProvider: android.provider.Settings.Secure#QS_SHOW_BRIGHTNESS_SLIDER:
+    New setting keys are not allowed (Field: QS_SHOW_BRIGHTNESS_SLIDER); use getters/setters in relevant manager class
+
+
 RequiresPermission: android.accounts.AccountManager#getAccountsByTypeAndFeatures(String, String[], android.accounts.AccountManagerCallback<android.accounts.Account[]>, android.os.Handler):
     Method 'getAccountsByTypeAndFeatures' documentation mentions permissions without declaring @RequiresPermission
 RequiresPermission: android.accounts.AccountManager#hasFeatures(android.accounts.Account, String[], android.accounts.AccountManagerCallback<java.lang.Boolean>, android.os.Handler):
@@ -1501,6 +1505,8 @@ UnflaggedApi: android.os.UserManager#DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO:
     New API must be flagged with @FlaggedApi: field android.os.UserManager.DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO
 UnflaggedApi: android.provider.Settings#ACTION_CREDENTIAL_PROVIDER:
     New API must be flagged with @FlaggedApi: field android.provider.Settings.ACTION_CREDENTIAL_PROVIDER
+UnflaggedApi: android.provider.Settings.Secure#QS_SHOW_BRIGHTNESS_SLIDER:
+    New API must be flagged with @FlaggedApi: field android.provider.Settings.Secure.QS_SHOW_BRIGHTNESS_SLIDER
 UnflaggedApi: android.telecom.Call.Details#getId():
     New API must be flagged with @FlaggedApi: method android.telecom.Call.Details.getId()
 UnflaggedApi: android.telephony.PhoneNumberUtils#isWpsCallNumber(String):

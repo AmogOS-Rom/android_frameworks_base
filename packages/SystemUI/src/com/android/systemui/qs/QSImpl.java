@@ -312,15 +312,21 @@ public class QSImpl implements QS, CommandQueue.Callbacks, StatusBarStateControl
         // Set the same elevation as the View implementation, otherwise the footer actions will be
         // drawn below the scroll view with QS grid and clicks won't get through on small devices
         // where there isn't enough vertical space to show all the tiles and the footer actions.
+        Log.d(TAG, "Thing 0102");
         composeView.setElevation(
                 composeView.getContext().getResources().getDimension(R.dimen.qs_panel_elevation));
-
+        Log.d(TAG, "Thing 0103");
         // Replace the View by the Compose provided one.
         ViewGroup parent = (ViewGroup) footerActionsView.getParent();
+        Log.d(TAG, "Thing 0104");
         ViewGroup.LayoutParams layoutParams = footerActionsView.getLayoutParams();
+        Log.d(TAG, "Thing 0105");
         int index = parent.indexOfChild(footerActionsView);
+        Log.d(TAG, "Thing 0106");
         parent.removeViewAt(index);
+        Log.d(TAG, "Thing 0107");
         parent.addView(composeView, index, layoutParams);
+        Log.d(TAG, "Thing 0108");
     }
 
     @Override

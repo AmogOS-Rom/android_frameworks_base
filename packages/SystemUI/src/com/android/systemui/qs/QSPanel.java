@@ -24,9 +24,7 @@ import android.annotation.Nullable;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.Resources;
-import android.database.ContentObserver;
 import android.graphics.Rect;
-import android.net.Uri;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.provider.Settings;
@@ -52,14 +50,11 @@ import com.android.systemui.settings.brightness.BrightnessSliderController;
 import com.android.systemui.tuner.TunerService;
 import com.android.systemui.tuner.TunerService.Tunable;
 
-import android.provider.Settings;
-import com.libremobileos.providers.LMOSettings;
-
 import java.util.ArrayList;
 import java.util.List;
 
 /** View that represents the quick settings tile panel (when expanded/pulled down). **/
-public class QSPanel extends LinearLayout {
+public class QSPanel extends LinearLayout implements Tunable {
 
     public static final String QS_SHOW_AUTO_BRIGHTNESS =
             Settings.Secure.QS_SHOW_AUTO_BRIGHTNESS;
@@ -98,9 +93,6 @@ public class QSPanel extends LinearLayout {
     protected boolean mExpanded;
     protected boolean mListening;
     protected boolean mIsAutomaticBrightnessAvailable = false;
-
-    private ContentObserver mContentObserver;
-    private boolean mIsAutomaticBrightnessAvailable = false;
 
     private final List<OnConfigurationChangedListener> mOnConfigurationChangedListeners =
             new ArrayList<>();
@@ -164,24 +156,6 @@ public class QSPanel extends LinearLayout {
         mIsAutomaticBrightnessAvailable = getResources().getBoolean(
                 com.android.internal.R.bool.config_automatic_brightness_available);
 
-        mContentObserver = new ContentObserver(null) {
-            @Override
-            public void onChange(boolean selfChange, @Nullable Uri uri) {
-                if (Settings.Secure.getUriFor(
-                            LMOSettings.Secure.QS_SHOW_AUTO_BRIGHTNESS).equals(uri)
-                        && mIsAutomaticBrightnessAvailable) {
-                    updateViewVisibilityForTuningValue(mAutoBrightnessView,
-                            Settings.Secure.getString(mContext.getContentResolver(),
-                                    LMOSettings.Secure.QS_SHOW_AUTO_BRIGHTNESS));
-                } else if (Settings.Secure.getUriFor(
-                            LMOSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER).equals(uri)
-                        && mBrightnessView != null) {
-                    updateViewVisibilityForTuningValue(mBrightnessView,
-                            Settings.Secure.getString(mContext.getContentResolver(),
-                                    LMOSettings.Secure.QS_SHOW_BRIGHTNESS_SLIDER));
-                }
-            }
-        };
         TunerService tunerService = Dependency.get(TunerService.class);
         mTop = tunerService.getValue(QS_BRIGHTNESS_SLIDER_POSITION, 1) == 0;
     }
@@ -219,10 +193,6 @@ public class QSPanel extends LinearLayout {
         if (mSceneContainerEnabled) {
             updatePadding();
         }
-    }
-
-    public ContentObserver getContentObserver() {
-        return mContentObserver;
     }
 
     protected void setHorizontalContentContainerClipping() {
@@ -399,9 +369,6 @@ public class QSPanel extends LinearLayout {
         return TAG;
     }
 
-    private void updateViewVisibilityForTuningValue(View view, @Nullable String newValue) {
-        view.setVisibility(TunerService.parseIntegerSwitch(newValue, true) ? VISIBLE : GONE);
-    }
     @Override
     public void onTuningChanged(String key, String newValue) {
         switch (key) {
