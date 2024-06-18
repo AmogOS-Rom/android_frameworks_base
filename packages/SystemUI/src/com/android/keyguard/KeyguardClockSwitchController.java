@@ -25,6 +25,7 @@ import static com.android.systemui.Flags.migrateClocksToBlueprint;
 import static com.android.systemui.flags.Flags.LOCKSCREEN_WALLPAPER_DREAM_ENABLED;
 import static com.android.systemui.util.kotlin.JavaAdapterKt.collectFlow;
 
+import android.provider.Settings.SettingNotFoundException;
 import android.annotation.Nullable;
 import android.database.ContentObserver;
 import android.os.UserHandle;
@@ -32,13 +33,17 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
+import android.content.Context;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.VisibleForTesting;
 
+import com.android.systemui.Dependency;
+import android.util.Log;
 import com.android.systemui.Dumpable;
+import com.android.systemui.amog.CurrentWeatherView;
 import com.android.systemui.common.ui.ConfigurationState;
 import com.android.systemui.dagger.qualifiers.Background;
 import com.android.systemui.dagger.qualifiers.Main;
@@ -73,6 +78,7 @@ import com.android.systemui.statusbar.phone.NotificationIconAreaController;
 import com.android.systemui.statusbar.phone.NotificationIconContainer;
 import com.android.systemui.statusbar.phone.ScreenOffAnimationController;
 import com.android.systemui.statusbar.ui.SystemBarUtilsState;
+import com.android.systemui.tuner.TunerService;
 import com.android.systemui.util.ViewController;
 import com.android.systemui.util.concurrency.DelayableExecutor;
 import com.android.systemui.util.settings.SecureSettings;
@@ -90,8 +96,11 @@ import kotlinx.coroutines.DisposableHandle;
  * Injectable controller for {@link KeyguardClockSwitch}.
  */
 public class KeyguardClockSwitchController extends ViewController<KeyguardClockSwitch>
-        implements Dumpable {
+        implements Dumpable, TunerService.Tunable {
     private static final String TAG = "KeyguardClockSwitchController";
+
+    private static final String LOCKSCREEN_WEATHER_ENABLED =
+            "system:" + Settings.System.LOCKSCREEN_WEATHER_ENABLED;
 
     private final StatusBarStateController mStatusBarStateController;
     private final ClockRegistry mClockRegistry;
@@ -110,6 +119,8 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
     private final ScreenOffAnimationController mScreenOffAnimationController;
     private final AlwaysOnDisplayNotificationIconViewStore mAodIconViewStore;
     private final StatusBarIconViewBindingFailureTracker mIconViewBindingFailureTracker;
+    private final TunerService  mTunerService;
+
     private FrameLayout mSmallClockFrame; // top aligned clock
     private FrameLayout mLargeClockFrame; // centered clock
 
@@ -130,6 +141,9 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
 
     private final KeyguardUnlockAnimationController mKeyguardUnlockAnimationController;
     private final InWindowLauncherUnlockAnimationManager mInWindowLauncherUnlockAnimationManager;
+
+    private CurrentWeatherView mCurrentWeatherView;
+    private int mShowWeather;
 
     private boolean mShownOnSecondaryDisplay = false;
     private boolean mOnlyClock = false;
@@ -239,6 +253,8 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
             @Override
             public void onAvailableClocksChanged() { }
         };
+
+        mTunerService = Dependency.get(TunerService.class);
     }
 
     /**
@@ -277,7 +293,9 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
 
         mSmallClockFrame = mView.findViewById(R.id.lockscreen_clock_view);
         mLargeClockFrame = mView.findViewById(R.id.lockscreen_clock_view_large);
-
+        mCurrentWeatherView = mView.findViewById(R.id.weather_container);
+        mCurrentWeatherView.enableUpdates();
+        //mCurrentWeatherView.setVisibility(View.VISIBLE);
         if (!mOnlyClock) {
             mDumpManager.unregisterDumpable(getClass().getSimpleName()); // unregister previous
             mDumpManager.registerDumpable(getClass().getSimpleName(), this);
@@ -288,6 +306,9 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
             collectFlow(mStatusArea, mKeyguardInteractor.isActiveDreamLockscreenHosted(),
                     mIsActiveDreamLockscreenHostedCallback);
         }
+
+        mTunerService.addTunable(this, LOCKSCREEN_WEATHER_ENABLED);
+
     }
 
     public KeyguardClockSwitch getView() {
@@ -354,6 +375,8 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
         mKeyguardUnlockAnimationController.addKeyguardUnlockAnimationListener(
                 mKeyguardUnlockAnimationListener);
 
+        updateWeatherView();
+
         if (mSmartspaceController.isEnabled()) {
             View ksv = mView.findViewById(R.id.keyguard_slice_view);
             int viewIndex = mStatusArea.indexOfChild(ksv);
@@ -391,6 +414,7 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
 
     @Override
     protected void onViewDetached() {
+        mTunerService.removeTunable(this);
         mClockRegistry.unregisterClockChangeListener(mClockChangedListener);
         mClockEventController.unregisterListeners();
         setClock(null);
@@ -402,6 +426,39 @@ public class KeyguardClockSwitchController extends ViewController<KeyguardClockS
 
         mKeyguardUnlockAnimationController.removeKeyguardUnlockAnimationListener(
                 mKeyguardUnlockAnimationListener);
+    }
+
+    @Override
+    public void onTuningChanged(String key, String newValue) {
+        switch (key) {
+            case LOCKSCREEN_WEATHER_ENABLED:
+                updateWeatherView();
+                break;
+            default:
+                break;
+        }
+    }
+
+    public void updateWeatherView() {
+        mUiExecutor.execute(() -> {
+            if (mCurrentWeatherView != null) {
+
+                Context mContext = getContext();
+                try {
+                    mShowWeather = Settings.System.getInt(mContext.getContentResolver(), "lockscreen_weather_enabled");
+                } catch(SettingNotFoundException e){
+                    return;
+                }
+
+                if (mShowWeather == 1) {
+                    mCurrentWeatherView.enableUpdates();
+                    mCurrentWeatherView.setVisibility(View.VISIBLE);
+                } else {
+                    mCurrentWeatherView.disableUpdates();
+                    mCurrentWeatherView.setVisibility(View.GONE);
+                }
+            }
+        });
     }
 
     void onLocaleListChanged() {

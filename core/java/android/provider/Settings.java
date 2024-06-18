@@ -6079,6 +6079,21 @@ public final class Settings {
         public static final String SCREEN_FLASH_NOTIFICATION = "screen_flash_notification";
 
         /**
+         * @hide
+         */
+        public static final String LOCKSCREEN_WEATHER_ENABLED = "lockscreen_weather_enabled";
+
+        /**
+         * @hide
+         */
+        public static final String LOCKSCREEN_WEATHER_LOCATION = "lockscreen_weather_location";
+
+        /**
+         * @hide
+         */
+        public static final String LOCKSCREEN_WEATHER_TEXT = "lockscreen_weather_text";
+
+        /**
          * Integer property that specifes the color for screen flash notification as a
          * packed 32-bit color.
          *
