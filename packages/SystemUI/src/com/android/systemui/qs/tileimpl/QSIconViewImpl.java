@@ -27,6 +27,8 @@ import android.content.res.Resources;
 import android.graphics.drawable.Animatable2;
 import android.graphics.drawable.Animatable2.AnimationCallback;
 import android.graphics.drawable.Drawable;
+import android.os.UserHandle;
+import android.provider.Settings;
 import android.service.quicksettings.Tile;
 import android.util.Log;
 import android.view.View;
@@ -53,6 +55,7 @@ public class QSIconViewImpl extends QSIconView {
     private int mTint;
     @Nullable
     private QSTile.Icon mLastIcon;
+
 
     private ValueAnimator mColorAnimator = new ValueAnimator();
 
@@ -235,7 +238,15 @@ public class QSIconViewImpl extends QSIconView {
         } else if (state.state == Tile.STATE_INACTIVE) {
             return Utils.getColorAttrDefaultColor(context, R.attr.onShadeInactiveVariant);
         } else if (state.state == Tile.STATE_ACTIVE) {
-            return Utils.getColorAttrDefaultColor(context, R.attr.onShadeActive);
+             boolean isDualTone = Settings.System.getIntForUser(
+                context.getContentResolver(),
+                "is_dual_tone", 0, UserHandle.USER_CURRENT
+            ) == 1;
+            if (isDualTone) {
+                return Utils.getColorAttrDefaultColor(context, R.attr.shadeActive);
+            } else {
+                return Utils.getColorAttrDefaultColor(context, R.attr.onShadeActive);
+            }
         } else {
             Log.e("QSIconView", "Invalid state " + state);
             return 0;

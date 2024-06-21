@@ -49,6 +49,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.Switch
 import android.widget.TextView
+import android.os.UserHandle
 import androidx.annotation.VisibleForTesting
 import com.android.app.tracing.traceSection
 import com.android.settingslib.Utils
@@ -82,6 +83,7 @@ open class QSTileViewImpl @JvmOverloads constructor(
         private const val OVERLAY_NAME = "overlay"
         const val UNAVAILABLE_ALPHA = 0.3f
         const val INACTIVE_ALPHA = 0.8f
+        const val ACTIVE_ALPHA = 0.2f
         @VisibleForTesting
         internal const val TILE_STATE_RES_PREFIX = "tile_states_"
     }
@@ -106,6 +108,13 @@ open class QSTileViewImpl @JvmOverloads constructor(
             field = value
             updateHeight()
         }
+    private val colorActiveAlpha = Utils.applyAlpha(ACTIVE_ALPHA, Utils.getColorAttrDefaultColor(context, com.android.internal.R.attr.colorAccent))
+    private val colorInactiveAlpha = resources.getColor(R.color.qs_translucent_bg)
+
+    private val isDualTone: Boolean = Settings.System.getIntForUser(
+            context.contentResolver,
+            "is_dual_tone", 0, UserHandle.USER_CURRENT
+        ) == 1
 
     private val colorActive = Utils.getColorAttrDefaultColor(context, R.attr.shadeActive)
     private val colorOffstate = Utils.getColorAttrDefaultColor(context, R.attr.shadeInactive)
@@ -830,8 +839,16 @@ open class QSTileViewImpl @JvmOverloads constructor(
     private fun getBackgroundColorForState(state: Int, disabledByPolicy: Boolean = false): Int {
         return when {
             state == Tile.STATE_UNAVAILABLE || disabledByPolicy -> colorUnavailable
-            state == Tile.STATE_ACTIVE -> colorActive
-            state == Tile.STATE_INACTIVE -> colorInactive
+            state == Tile.STATE_ACTIVE ->
+            if (isDualTone)
+                colorActiveAlpha
+            else
+                colorActive
+            state == Tile.STATE_INACTIVE ->
+            if (isDualTone)
+                colorInactiveAlpha
+            else
+                colorInactive
             else -> {
                 Log.e(TAG, "Invalid state $state")
                 0
@@ -842,7 +859,11 @@ open class QSTileViewImpl @JvmOverloads constructor(
     private fun getLabelColorForState(state: Int, disabledByPolicy: Boolean = false): Int {
         return when {
             state == Tile.STATE_UNAVAILABLE || disabledByPolicy -> colorLabelUnavailable
-            state == Tile.STATE_ACTIVE -> colorLabelActive
+            state == Tile.STATE_ACTIVE ->
+            if (isDualTone)
+                colorActive
+            else
+                colorLabelActive
             state == Tile.STATE_INACTIVE -> colorLabelInactive
             else -> {
                 Log.e(TAG, "Invalid state $state")
@@ -854,7 +875,11 @@ open class QSTileViewImpl @JvmOverloads constructor(
     private fun getSecondaryLabelColorForState(state: Int, disabledByPolicy: Boolean = false): Int {
         return when {
             state == Tile.STATE_UNAVAILABLE || disabledByPolicy -> colorSecondaryLabelUnavailable
-            state == Tile.STATE_ACTIVE -> colorSecondaryLabelActive
+            state == Tile.STATE_ACTIVE ->
+            if (isDualTone)
+                colorActive
+            else
+                colorSecondaryLabelActive
             state == Tile.STATE_INACTIVE -> colorSecondaryLabelInactive
             else -> {
                 Log.e(TAG, "Invalid state $state")

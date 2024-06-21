@@ -33,12 +33,15 @@ import android.os.Handler;
 import android.os.Trace;
 import android.util.Log;
 import android.util.MathUtils;
+import android.content.Context;
 import android.util.Pair;
 import android.view.CrossWindowBlurListeners;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.animation.DecelerateInterpolator;
 import android.view.animation.Interpolator;
+import android.view.ContextThemeWrapper;
+
 
 import androidx.annotation.FloatRange;
 import androidx.annotation.Nullable;
@@ -55,6 +58,7 @@ import com.android.settingslib.Utils;
 import com.android.systemui.CoreStartable;
 import com.android.systemui.DejankUtils;
 import com.android.systemui.Dumpable;
+
 import com.android.systemui.animation.ShadeInterpolation;
 import com.android.systemui.bouncer.shared.constants.KeyguardBouncerConstants;
 import com.android.systemui.dagger.SysUISingleton;
@@ -1512,8 +1516,9 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
 
     private void updateThemeColors() {
         if (mScrimBehind == null) return;
-        int background = Utils.getColorAttr(mScrimBehind.getContext(),
-                com.android.internal.R.attr.materialColorSurfaceDim).getDefaultColor();
+        Context themedContext =
+            new ContextThemeWrapper(mScrimBehind.getContext(), R.style.Theme_SystemUI_QuickSettings);
+        int background = themedContext.getResources().getColor(R.color.qs_surface_color);
         int surfaceBackground = Utils.getColorAttr(mScrimBehind.getContext(),
                 com.android.internal.R.attr.colorSurfaceHeader).getDefaultColor();
         int accent = Utils.getColorAttr(mScrimBehind.getContext(),
