@@ -19,6 +19,7 @@ package com.android.systemui.statusbar.phone;
 import android.graphics.Color;
 
 import com.android.systemui.dock.DockManager;
+import com.android.systemui.res.R;
 import com.android.systemui.scrim.ScrimView;
 import com.android.systemui.statusbar.notification.stack.StackStateAnimator;
 
@@ -38,8 +39,8 @@ public enum ScrimState {
     OFF {
         @Override
         public void prepare(ScrimState previousState) {
-            mFrontTint = Color.BLACK;
-            mBehindTint = Color.BLACK;
+            mFrontTint = mBackgroundColor;
+            mBehindTint = mBackgroundColor;
 
             mFrontAlpha = 1f;
             mBehindAlpha = 1f;
@@ -73,8 +74,8 @@ public enum ScrimState {
             } else {
                 mAnimationDuration = ScrimController.ANIMATION_DURATION;
             }
-            mFrontTint = Color.BLACK;
-            mBehindTint = Color.BLACK;
+            mFrontTint = mBackgroundColor;
+            mBehindTint = mBackgroundColor;
             mNotifTint = Color.TRANSPARENT;
 
             mFrontAlpha = 0;
@@ -92,7 +93,7 @@ public enum ScrimState {
             // notif scrim alpha values are determined by ScrimController#applyState
             // based on the shade expansion
 
-            mFrontTint = Color.BLACK;
+            mFrontTint = mBackgroundColor;
             mFrontAlpha = .66f;
 
             mBehindTint = Color.TRANSPARENT;
@@ -109,7 +110,7 @@ public enum ScrimState {
             mBehindTint = previousState.mBehindTint;
             mBehindAlpha = previousState.mBehindAlpha;
 
-            mFrontTint = Color.BLACK;
+            mFrontTint = mBackgroundColor;
             mFrontAlpha = .66f;
         }
     },
@@ -187,11 +188,11 @@ public enum ScrimState {
             final boolean isDocked = mDockManager.isDocked();
             mBlankScreen = mDisplayRequiresBlanking;
 
-            mFrontTint = Color.BLACK;
+            mFrontTint = mBackgroundColor;
             mFrontAlpha = (alwaysOnEnabled || isDocked || quickPickupEnabled)
                     ? mAodFrontScrimAlpha : 1f;
 
-            mBehindTint = Color.BLACK;
+            mBehindTint = mBackgroundColor;
             mBehindAlpha = ScrimController.TRANSPARENT;
 
             mAnimationDuration = ScrimController.ANIMATION_DURATION_LONG;
@@ -225,8 +226,8 @@ public enum ScrimState {
         @Override
         public void prepare(ScrimState previousState) {
             mFrontAlpha = mAodFrontScrimAlpha;
-            mBehindTint = Color.BLACK;
-            mFrontTint = Color.BLACK;
+            mBehindTint = mBackgroundColor;
+            mFrontTint = mBackgroundColor;
             mBlankScreen = mDisplayRequiresBlanking;
             mAnimationDuration = mWakeLockScreenSensorActive
                     ? ScrimController.ANIMATION_DURATION_LONG : ScrimController.ANIMATION_DURATION;
@@ -234,7 +235,7 @@ public enum ScrimState {
         @Override
         public float getMaxLightRevealScrimAlpha() {
             return mWakeLockScreenSensorActive ? ScrimController.WAKE_SENSOR_SCRIM_ALPHA
-                : AOD.getMaxLightRevealScrimAlpha();
+                    : AOD.getMaxLightRevealScrimAlpha();
         }
     },
 
@@ -248,7 +249,6 @@ public enum ScrimState {
             mBehindAlpha = mClipQsScrim ? mQSClipScrimAlpha : 0;
             mNotifAlpha = 0;
             mFrontAlpha = 0;
-
             mAnimationDuration = mKeyguardFadingAway
                     ? mKeyguardFadingAwayDuration
                     : CentralSurfaces.FADE_KEYGUARD_DURATION;
@@ -267,11 +267,11 @@ public enum ScrimState {
 
             if (mDisplayRequiresBlanking && previousState == ScrimState.AOD) {
                 // Set all scrims black, before they fade transparent.
-                updateScrimColor(mScrimInFront, 1f /* alpha */, Color.BLACK /* tint */);
+                updateScrimColor(mScrimInFront, 1f /* alpha */, mBackgroundColor /* tint */);
                 updateScrimColor(mScrimBehind, 1f /* alpha */, Color.TRANSPARENT /* tint */);
 
                 // Scrims should still be black at the end of the transition.
-                mFrontTint = Color.BLACK;
+                mFrontTint = mBackgroundColor;
                 mBehindTint = Color.TRANSPARENT;
                 mBlankScreen = true;
             }
@@ -286,8 +286,8 @@ public enum ScrimState {
         @Override
         public void prepare(ScrimState previousState) {
             mFrontTint = Color.TRANSPARENT;
-            mBehindTint = Color.BLACK;
-            mNotifTint = mClipQsScrim ? Color.BLACK : Color.TRANSPARENT;
+            mBehindTint = mBackgroundColor;
+            mNotifTint = mClipQsScrim ? mBackgroundColor : Color.TRANSPARENT;
 
             mFrontAlpha = 0;
             mBehindAlpha = mClipQsScrim ? mCustomScrimAlpha : 0;
@@ -296,8 +296,23 @@ public enum ScrimState {
             mBlankScreen = false;
 
             if (mClipQsScrim) {
-                updateScrimColor(mScrimBehind, 1f /* alpha */, Color.BLACK);
+                updateScrimColor(mScrimBehind, 1f /* alpha */, mBackgroundColor);
             }
+        }
+    },
+
+    /**
+     * Device is locked or on dream and user has swiped from the right edge to enter the glanceable
+     * hub UI. From this state, the user can swipe from the left edge to go back to the lock screen
+     * or dream, as well as swipe down for the notifications and up for the bouncer.
+     */
+    GLANCEABLE_HUB {
+        @Override
+        public void prepare(ScrimState previousState) {
+            // No scrims should be visible by default in this state.
+            mBehindAlpha = 0;
+            mNotifAlpha = 0;
+            mFrontAlpha = 0;
         }
     };
 
@@ -332,9 +347,11 @@ public enum ScrimState {
     boolean mKeyguardFadingAway;
     long mKeyguardFadingAwayDuration;
     boolean mClipQsScrim;
+    int mBackgroundColor;
 
     public void init(ScrimView scrimInFront, ScrimView scrimBehind, DozeParameters dozeParameters,
             DockManager dockManager) {
+        mBackgroundColor = scrimBehind.getContext().getColor(R.color.shade_scrim_background_dark);
         mScrimInFront = scrimInFront;
         mScrimBehind = scrimBehind;
 

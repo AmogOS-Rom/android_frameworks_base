@@ -20,6 +20,7 @@ import static android.util.TypedValue.TYPE_INT_COLOR_ARGB8;
 
 import static com.android.systemui.Flags.themeOverlayControllerWakefulnessDeprecation;
 import static com.android.systemui.keyguard.WakefulnessLifecycle.WAKEFULNESS_ASLEEP;
+import static com.android.systemui.shared.Flags.enableHomeDelay;
 import static com.android.systemui.theme.ThemeOverlayApplier.COLOR_SOURCE_HOME;
 import static com.android.systemui.theme.ThemeOverlayApplier.COLOR_SOURCE_LOCK;
 import static com.android.systemui.theme.ThemeOverlayApplier.COLOR_SOURCE_PRESET;
@@ -34,6 +35,7 @@ import static com.android.systemui.util.qs.QSStyleUtils.QS_STYLE_ROUND_OVERLAY;
 import static com.android.systemui.util.qs.QSStyleUtils.isRoundQSSetting;
 import static com.android.systemui.util.qs.QSStyleUtils.setRoundQS;
 
+import android.app.ActivityManager;
 import android.app.UiModeManager;
 import android.app.WallpaperColors;
 import android.app.WallpaperManager;
@@ -151,6 +153,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     // Current wallpaper colors associated to a user.
     private final SparseArray<WallpaperColors> mCurrentColors = new SparseArray<>();
     private final WallpaperManager mWallpaperManager;
+    private final ActivityManager mActivityManager;
     @VisibleForTesting
     protected ColorScheme mColorScheme;
     // If fabricated overlays were already created for the current theme.
@@ -443,6 +446,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
             JavaAdapter javaAdapter,
             KeyguardTransitionInteractor keyguardTransitionInteractor,
             UiModeManager uiModeManager,
+            ActivityManager activityManager,
             ConfigurationController configurationController) {
         mContext = context;
         mIsMonetEnabled = featureFlags.isEnabled(Flags.MONET);
@@ -466,6 +470,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         mJavaAdapter = javaAdapter;
         mKeyguardTransitionInteractor = keyguardTransitionInteractor;
         mUiModeManager = uiModeManager;
+        mActivityManager = activityManager;
         dumpManager.registerDumpable(TAG, this);
     }
 
@@ -988,20 +993,32 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
         }
 
         managedProfiles.addAll(ParallelSpaceManager.getInstance().getParallelUserHandles());
+
+        final Runnable onCompleteCallback = !enableHomeDelay()
+                ? () -> {}
+                : () -> {
+                    Log.d(TAG, "ThemeHomeDelay: ThemeOverlayController ready");
+                    mActivityManager.setThemeOverlayReady(currentUser);
+                };
+
         if (DEBUG) {
             Log.d(TAG, "Applying overlays: " + categoryToPackage.keySet().stream()
                     .map(key -> key + " -> " + categoryToPackage.get(key)).collect(
                             Collectors.joining(", ")));
         }
+
+        FabricatedOverlay[] fOverlays = null;
+
         if (mNeedsOverlayCreation) {
             mNeedsOverlayCreation = false;
-            mThemeManager.applyCurrentUserOverlays(categoryToPackage, new FabricatedOverlay[]{
+            fOverlays = new FabricatedOverlay[]{
                     mSecondaryOverlay, mNeutralOverlay, mDynamicOverlay
-            }, currentUser, managedProfiles);
-        } else {
-            mThemeManager.applyCurrentUserOverlays(categoryToPackage, null, currentUser,
-                    managedProfiles);
+            };
         }
+
+        mThemeManager.applyCurrentUserOverlays(categoryToPackage, fOverlays, currentUser,
+                managedProfiles, onCompleteCallback);
+
     }
 
     private Style fetchThemeStyleFromSetting() {
