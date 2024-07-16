@@ -152,4 +152,7 @@
     <string name="weather_condition_snow">Snowy</string>
     <string name="weather_condition_wind">Windy</string>
     <string name="weather_condition_mist">Misty</string>
+    
+    <!-- Channel name for Battery notifications -->
+    <string name="battery_notification_channel_tv">Battery warning</string>
 </resources>
